@@ -1,0 +1,67 @@
+@page "/review/validate"
+@model SignFabric.Pages.Review.ValidateModel
+
+@{
+    ViewData["Title"] = "Validate Document";
+}
+
+<section id="home" class="container section @(Model.Result == null ? "auth-section" : null)">
+    @if (Model.Result == null) {
+        <div class="auth-card">
+            <div class="auth-icon" aria-hidden="true">
+                <i class="bi bi-shield-check"></i>
+            </div>
+            <h1>Validate Document</h1>
+            <p>Upload a fully signed PDF to verify its integrity and signature envelope.</p>
+
+            <form enctype="multipart/form-data" method="post" autocomplete="on" class="auth-form">
+                @if (Model.Input.Error == true) {
+                    <div class="auth-alert" role="alert">
+                        @(string.IsNullOrWhiteSpace(Model.Input.ErrorMessage)
+                            ? "The envelope is invalid. Please check the document."
+                            : Model.Input.ErrorMessage)
+                    </div>
+                }
+
+                <div class="mb-3 text-start">
+                    <label asp-for="Input.Document" class="form-label">Signed PDF document</label>
+                    <input required asp-for="Input.Document" class="form-control" type="file" accept=".pdf" aria-describedby="DocumentHelp" />
+                    <div id="DocumentHelp" class="form-text">Select a signed PDF document from your local machine.</div>
+                </div>
+
+                <button class="btn btn-warning auth-submit" type="submit">Validate Document</button>
+            </form>
+        </div>
+    }
+    else {
+        <div class="row">
+            <div class="col-md-12">
+                <h1>The uploaded PDF document is @(Model.Result.Valid == true ? "valid" : "invalid")</h1>
+                @if (!Model.Result.Valid && !string.IsNullOrWhiteSpace(Model.Result.ErrorMessage)) {
+                    <div class="alert alert-danger mt-3" role="alert">@Model.Result.ErrorMessage</div>
+                }
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-2">
+                <h1><i style="font-size: 120pt;" class="bi bi-fingerprint @(Model.Result.Valid == true ? "text-success" : "text-danger")" aria-hidden="true"></i></h1>
+            </div>
+            <div class="col-md-10">
+                <h3 class="mt-3">Envelope: <strong>@Model.Result.Envelope.Name</strong></h3>
+
+                <p>
+                    Envelope ID: <strong>@Model.Result.Envelope.EnvelopeID</strong><br />
+                    From: <strong>@Model.Result.Envelope.Sender</strong>
+                </p>
+            </div>
+        </div>
+
+        @if (Model.Result.Valid == true) {
+            @await Html.PartialAsync("~/Pages/Shared/Review/_AuditTrail.cshtml", Model.Result.Envelope)
+        }
+        else {
+            <a href="/review/validate" class="btn btn-warning mb-3"><strong>Validate another Document</strong></a>
+        }
+    }
+</section>

@@ -1,0 +1,46 @@
+{
+  "confirmation.html": {
+    "Subject": "Please sign: %%%document_name%%%",
+    "Preheader": "%%%sender_name%%% sent you a document to review and sign."
+  },
+  "confirmation-contract.html": {
+    "Subject": "Please review: %%%document_name%%%",
+    "Preheader": "%%%sender_name%%% sent you a document to review for collaboration."
+  },
+  "reviewed.html": {
+    "Subject": "Your document has been reviewed: %%%document_name%%%",
+    "Preheader": "%%%signer_name%%% reviewed your document."
+  },
+  "signed.html": {
+    "Subject": "Your document has been signed: %%%document_name%%%",
+    "Preheader": "%%%signer_name%%% reviewed and signed your document."
+  },
+  "signing-thanks.html": {
+    "Subject": "Thanks for signing the document \"%%%document_name%%%\"",
+    "Preheader": "Your signature has been recorded."
+  },
+  "signing-thanks_completed.html": {
+    "Subject": "Thanks for signing the document \"%%%document_name%%%\"",
+    "Preheader": "The document has been signed by all parties."
+  },
+  "signing-failed.html": {
+    "Subject": "Signing failed: %%%document_name%%%",
+    "Preheader": "The final signed PDF could not be created."
+  },
+  "user-invitation.html": {
+    "Subject": "Your Text Control SignFabric account invitation",
+    "Preheader": "You have been invited to Text Control SignFabric."
+  },
+  "user-two-factor-code.html": {
+    "Subject": "Your Text Control SignFabric verification code",
+    "Preheader": "Use this code to complete your sign-in."
+  },
+  "user-password-reset.html": {
+    "Subject": "Reset your Text Control SignFabric password",
+    "Preheader": "Use this secure link to reset your Text Control SignFabric password."
+  },
+  "email-layout.html": {
+    "Subject": "Shared e-mail layout",
+    "Preheader": "Shared e-mail wrapper."
+  }
+}

@@ -1,0 +1,18 @@
+@model SignatureBoxModel
+
+@if (Model.ContainsSignatureBoxes == false) {
+    <div class="alert alert-warning" role="alert">
+        <p><i class="bi bi-exclamation-triangle-fill text-warning" aria-hidden="true"></i> The document doesn't contain all required signature boxes.</p>
+        <p>Please add required signature box(es) to proceed.</p>
+        <button data-esign-action="load-editor" data-envelope-id="@Model.EnvelopeID" class="btn btn-warning"><strong>Add Signature Boxes</strong></button>
+    </div>
+}
+else {
+<div class="alert alert-success" role="alert">
+    <p><i class="bi bi-check-circle-fill" aria-hidden="true"></i> The document contains all required signature boxes.</p>
+    <button data-esign-action="load-editor" data-envelope-id="@Model.EnvelopeID" class="btn btn-warning"><strong>Edit Document</strong></button>
+</div>
+}
+
+<button data-esign-action="next-step" data-target="collapseRecipient" class="btn btn-light mt-3 mb-3"><strong>Back</strong></button>
+<button id="btnSignature" @(Model.ContainsSignatureBoxes == false ? "disabled" : "") data-esign-action="submit-signature-box" data-envelope-id="@Model.EnvelopeID" class="btn btn-warning mt-3 mb-3"><strong>Next</strong></button>

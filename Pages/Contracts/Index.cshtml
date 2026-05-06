@@ -1,0 +1,56 @@
+@page "/contracts"
+@model SignFabric.Pages.Contracts.IndexModel
+
+@{
+    ViewData["Title"] = "Contract Overview";
+}
+
+<section id="home" class="container section">
+
+    <a href="/contracts/create" class="btn btn-warning mb-3"><strong>New Contract</strong></a>
+
+    <h1>Contract Workflows</h1>
+
+    <div class="row">
+        <div class="col-12">
+            <div>
+                <table class="table table-hover mt-5" data-esign-table="overview" data-page-size="10">
+                    <thead>
+                        <tr>
+                            <th class="align-middle" scope="col">Subject</th>
+                            <th class="align-middle" scope="col">Status</th>
+                            <th class="align-middle" scope="col" data-sortable="false"></th>
+                            <th class="align-middle" scope="col">Created</th>
+                            <th class="align-middle" scope="col" data-sortable="false"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var contract in @Model.Contracts) {
+                            <tr>
+                                <th class="align-middle" scope="row"><a href="/contracts/details/@contract.ContractID">@contract.Name</a> @if (contract.Status == ContractStatus.Changed){ <span class="badge rounded-pill bg-warning text-dark">Changed</span> }</th>
+                                <td class="align-middle">@contract.Status</td>
+                                <td class="align-middle">
+                                    @{ if (contract.Status == ContractStatus.Sent) {
+                                            <i class="bi bi-send-fill text-success" aria-hidden="true"></i>
+                                        }
+                                        else if (contract.Status == ContractStatus.Closed) {
+                                            <i class="bi bi-check-lg text-success" aria-hidden="true"></i>
+                                        }
+                                    }
+                                </td>
+                                <td class="align-middle">@contract.Created</td>
+                                <td class="align-middle">
+                                    <div class="btn-group">
+                                        <a href="/contracts/details/@contract.ContractID" class="btn btn-primary">Summary</a>
+
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</section>

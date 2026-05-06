@@ -1,0 +1,70 @@
+@model TemplateEditModel
+@using TXTextControl.Web.MVC
+
+<div class="editor-close">
+    <button data-esign-action="save-editor-document" class="btn btn-warning"><strong>Save and Close</strong></button>
+</div>
+
+<div class="editor-wrapper">
+    <div class="sidebar">
+
+        <div class="list-group">
+
+            <h5>Merge Fields <i role="button" data-bs-toggle="tooltip" data-bs-placement="top" title="Merge fields are pre-populated before a document is sent to a user. Typically, those fields are used for known values such as name, company name or fixed dates." class="bi bi-info-circle small" aria-hidden="true"></i></h5>
+
+            <a data-esign-action="insert-merge-field" class="list-group-item list-group-item-action toolbox-item">
+                <i class="bi bi-intersect" aria-hidden="true"></i> Merge Field
+            </a>
+
+            <a data-esign-action="insert-date-field" class="list-group-item list-group-item-action toolbox-item mb-3">
+                <i class="bi bi-calendar3" aria-hidden="true"></i> Current Date Field
+            </a>
+
+            <h5 class="mt-3">Signature Fields <i role="button" data-bs-toggle="tooltip" data-bs-placement="top" title="Signature fields are used to capture signatures from users. This defines locations where the user should sign a document. Typically, these signature boxes are positioned at the end of a contract." class="bi bi-info-circle small" aria-hidden="true"></i></h5>
+
+            <a data-esign-action="insert-text-frame" class="list-group-item list-group-item-action toolbox-item mb-3">
+                <i class="bi bi-pen-fill" aria-hidden="true"></i> Signature Box
+            </a>
+
+            <h5 class="mt-3">Form Fields <i role="button" data-bs-toggle="tooltip" data-bs-placement="top" title="Form fields are used to collect additional data from users. Typically, form fields are used to ask for data that are not known at the time of preparing the document." class="bi bi-info-circle small" aria-hidden="true"></i></h5>
+
+            <a data-esign-action="insert-text-form-field" class="list-group-item list-group-item-action toolbox-item">
+                <i class="bi bi-input-cursor-text" aria-hidden="true"></i> Text Form Field
+            </a>
+            <a data-esign-action="insert-checkbox" class="list-group-item list-group-item-action toolbox-item">
+                <i class="bi bi-check-square" aria-hidden="true"></i> Checkbox
+            </a>
+            <a data-esign-action="insert-dropdown" class="list-group-item list-group-item-action toolbox-item">
+                <i class="bi bi-menu-button-wide" aria-hidden="true"></i> Drop-Down
+            </a>
+            <a data-esign-action="insert-date-picker" class="list-group-item list-group-item-action toolbox-item">
+                <i class="bi bi-calendar-date" aria-hidden="true"></i> Date Picker
+            </a>
+        </div>
+
+        <div id="fieldProperties" class="d-none">
+            <h5>Field Properties</h5>
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="fieldRequired">
+                <label class="form-check-label" for="fieldRequired">Required field</label>
+            </div>
+            <div class="mt-2">
+                <label for="fieldName" class="form-label">Field name</label>
+                <div class="input-group">
+                    <input type="text" required placeholder="Add field name" class="form-control" id="fieldName" aria-describedby="fieldNameHelp">
+                    <button class="btn btn-outline-secondary" type="button" id="fieldNameApply">Apply</button>
+                </div>
+                <div id="fieldNameHelp" class="form-text">Unique name of the field.</div>
+            </div>
+        </div>
+
+    </div>
+    <div class="editor-document">
+        @Html.TXTextControl().TextControl(settings => {
+            settings.Dock = TXTextControl.Web.DockStyle.Fill;
+        }).Render()
+    </div>
+</div>
+
+<div data-esign-init="template-editor" data-template-id="@Model.Template.TemplateID"></div>
+

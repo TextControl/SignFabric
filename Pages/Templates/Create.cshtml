@@ -1,0 +1,106 @@
+@page "/templates/create"
+@model SignFabric.Pages.Templates.CreateModel
+
+@{
+    ViewData["Title"] = "Prepare the Template";
+}
+
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 5">
+    <div id="liveToast" class="toast hide text-white bg-success" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <i class="bi bi-clipboard-check" aria-hidden="true"></i>&nbsp;
+            <strong class="me-auto">Text Control eSign</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div id="liveToastMessage" class="toast-body">
+
+        </div>
+    </div>
+</div>
+
+<div id="editor"></div>
+
+<section id="home" class="container section signature-flow-section">
+
+        <div class="signature-flow-card" id="processSteps">
+            <div class="signature-flow-heading">
+                <h1>Upload or create a new template</h1>
+                <p>Prepare a reusable document for future signature requests.</p>
+            </div>
+
+            <div class="row">
+                <div class="col-md-1 offset-1 status-border-last">
+                    <span id="statusDocument" class="status status-active"><i class="bi bi-file-earmark-text" aria-hidden="true"></i></span>
+                </div>
+                <div class="col-md-8 offset-md-1 status-content">
+                    <p>
+                        <strong>Template document</strong>
+                        <br />
+                        Please upload or create a new template.
+                    </p>
+                    <div id="collapseContract">
+                        <div id="contractUploadBox">
+                            <div class="box-frame">
+                                <div class="mb-3">
+                                    <input data-esign-action="add-template" accept="@Model.AcceptedFileTypes" id="files" name="files" type="file" class="form-control file">
+                                </div>
+                                <div class="mb-3">
+                                    or...
+                                </div>
+                                <div>
+                                    <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#newTemplateModal">
+                                        <strong>New Template</strong>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="mt-3 waitstate">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="contractPreviewBox">
+                            <img class="img-fluid thumbnail-image thumbnail-small" src="" id="statusDocumentThumbnail" />
+                            <p class="mt-3" id="statusDocumentInfo"></p>
+
+                            <p>Template successfully created. You can modify the template in the overview.</p>
+
+                            <a href="/templates" class="btn btn-warning mb-3"><strong>Template Overview</strong></a>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+</section>
+
+<div class="modal fade" id="newTemplateModal" tabindex="-1" aria-labelledby="newTemplateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content app-modal-content">
+            <div class="modal-header app-modal-header">
+                <div class="app-modal-icon" aria-hidden="true">
+                    <i class="bi bi-file-earmark-plus"></i>
+                </div>
+                <h5 class="modal-title" id="newTemplateModalLabel">New Template</h5>
+                <p>Create a blank internal TX document and name it now.</p>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body app-modal-body">
+                <label for="newTemplateName" class="form-label">Document name</label>
+                <input id="newTemplateName" class="form-control" type="text" maxlength="120" autocomplete="off" />
+                <div class="form-text">Create a blank TX template document with this name.</div>
+            </div>
+            <div class="modal-footer app-modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning" data-esign-action="create-template" data-name-input="newTemplateName">
+                    <strong>Create Template</strong>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

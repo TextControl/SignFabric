@@ -1,0 +1,64 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <UserSecretsId>aspnet-esign-108A1036-2590-429F-8B71-B86162CBEB02</UserSecretsId>
+    <CopyRefAssembliesToPublishDirectory>false</CopyRefAssembliesToPublishDirectory>
+
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>SignFabric</AssemblyName>
+    <RootNamespace>SignFabric</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Azure.Identity" Version="1.21.0" />
+    <PackageReference Include="Azure.Security.KeyVault.Certificates" Version="4.8.0" />
+    <PackageReference Include="Azure.Security.KeyVault.Secrets" Version="4.10.0" />
+    <PackageReference Include="BuildBundlerMinifier" Version="3.2.449" />
+    <PackageReference Include="LiteDB" Version="5.0.21" />
+    <PackageReference Include="LiteDB.Identity" Version="1.0.9" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.7" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.7" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="10.0.7" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="10.0.7" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="TXTextControl.TextControl.Core.SDK" Version="34.0.3" />
+    <PackageReference Include="TXTextControl.Web" Version="34.3.0" />
+    <PackageReference Include="TXTextControl.Web.DocumentEditor.Backend" Version="34.3.0" />
+    <PackageReference Include="TXTextControl.Web.DocumentViewer" Version="34.2.0" />
+   
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Data\users\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Exclude reference folder from compilation -->
+    <Compile Remove="_reference/**/*.cs" />
+    <Content Remove="_reference/**" />
+    <None Remove="_reference/**" />
+    <RazorGenerate Remove="_reference/**/*.cshtml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include=".github\copilot-instructions.md" />
+    <None Include=".github\upgrades\assessment.md" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="App_Data\confirmation.html">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </None>
+    <None Update="App_Data\signing-thanks.html">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

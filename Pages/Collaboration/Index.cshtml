@@ -1,0 +1,83 @@
+@page "/collaboration/edit/{id?}"
+@model SignFabric.Pages.Collaboration.IndexModel
+@using TXTextControl.Web.MVC
+
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Please review the Document - Text Control eSign</title>
+    <link rel="stylesheet" href="~/twitter-bootstrap/css/bootstrap.css" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+    <link rel="stylesheet" href="~/css/site.min.css" />
+</head>
+<body style="background-color: #e5e5e5">
+    @if (Model.HasError) {
+        <section id="home" class="container section">
+            <div class="row">
+                <div class="col-sm-6 offset-sm-3">
+                    <div class="card">
+                        <div class="card-header">Document not found</div>
+                        <div class="card-body">
+                            <h5 class="card-title">The collaboration link is invalid.</h5>
+                            <p class="card-text">Please check the link and try again.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    }
+    else if (Model.IsUnavailable) {
+        <section id="home" class="container section">
+            <div class="row">
+                <div class="col-sm-6 offset-sm-3">
+                    <div class="card">
+                        <div class="card-header">Document already accepted or changed.</div>
+                        <div class="card-body">
+                            <h5 class="card-title">You already accepted the document or proposed changes to the document.</h5>
+                            <p class="card-text">If further changes are needed, please contact the document owner.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    }
+    else {
+        <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 99999999">
+            <div id="liveToast" class="toast text-white bg-success" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header">
+                    <i class="bi bi-clipboard-check" aria-hidden="true"></i>&nbsp;
+                    <strong class="me-auto">Text Control eSign</strong>
+                    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div id="liveToastMessage" class="toast-body"></div>
+            </div>
+        </div>
+
+        <div class="editor-close">
+            <button id="btnAccept" data-esign-action="save-editor-document" class="btn btn-warning"><strong>Save and Send</strong></button>
+            <button id="btnAcceptAll" disabled data-esign-action="accept-all" class="btn btn-success mx-2"><strong>Accept All</strong></button>
+            <button id="btnChanges" data-esign-action="make-changes" class="btn btn-danger mx-5"><strong>Make Changes</strong></button>
+        </div>
+
+        <div class="editor-wrapper">
+            <div class="editor-document large">
+                @Html.TXTextControl().TextControl(settings => {
+                    settings.Dock = TXTextControl.Web.DockStyle.Fill;
+                    settings.UserNames = new string[] { Model.EditorUser };
+                }).Render()
+            </div>
+        </div>
+
+        <script src="~/twitter-bootstrap/js/bootstrap.bundle.js"></script>
+        <script src="~/js/site.min.js" asp-append-version="true"></script>
+
+        <div data-esign-init="collaboration" data-document-id="@Model.DocumentId" data-owner="@Model.Owner.ToString().ToLower()"></div>
+    }
+</body>
+</html>

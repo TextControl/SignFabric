@@ -1,0 +1,1195 @@
+@page "/admin"
+@model SignFabric.Pages.Admin.IndexModel
+
+@{
+    ViewData["Title"] = "Admin";
+    var hasAzureKeyVaultCertificate = Model.CertificateConfiguration.Provider == "AzureKeyVault"
+        && !string.IsNullOrWhiteSpace(Model.CertificateConfiguration.AzureKeyVaultUri)
+        && !string.IsNullOrWhiteSpace(Model.CertificateConfiguration.AzureCertificateName);
+    var hasActiveLocalCertificate = Model.Certificates.Any(certificate => certificate.IsActive);
+    var hasSigningCertificate = hasAzureKeyVaultCertificate || hasActiveLocalCertificate;
+    var activeAdminTab = Request.Query.ContainsKey("emailTemplate")
+        ? "email"
+        : Model.ActiveAdminTab == "email" || Model.ActiveAdminTab == "auth" || Model.ActiveAdminTab == "certificates" || Model.ActiveAdminTab == "users"
+            ? Model.ActiveAdminTab
+            : "users";
+    var certificatesTabActive = activeAdminTab == "certificates";
+    var emailTabActive = activeAdminTab == "email";
+    var authTabActive = activeAdminTab == "auth";
+    var usersTabActive = activeAdminTab == "users";
+}
+
+<section id="home" class="container section">
+    <h1>Admin</h1>
+    <p>Manage users, roles, invitations, and application settings.</p>
+
+    @if (!string.IsNullOrEmpty(Model.StatusMessage)) {
+        <div class="alert alert-info" role="alert">@Model.StatusMessage</div>
+    }
+
+    @if (!hasSigningCertificate) {
+        <div class="alert alert-warning certificate-required-alert mt-4" role="alert">
+            <strong>No signing certificate is active.</strong>
+            <p class="mb-0 mt-2">
+                Add and activate a local PFX certificate or configure Azure Key Vault before users can request signatures.
+            </p>
+        </div>
+    }
+
+    @if (Model.EmailSettings.PasswordRequiresReset) {
+        <div class="alert alert-warning certificate-required-alert mt-4" role="alert">
+            <strong>The stored SMTP password must be re-entered.</strong>
+            <p class="mb-0 mt-2">
+                The application identity changed and the old encrypted SMTP password can no longer be decrypted. Re-enter the SMTP password in E-Mail Settings.
+            </p>
+        </div>
+    }
+    else if (!Model.HasEmailCredentials) {
+        <div class="alert alert-warning certificate-required-alert mt-4" role="alert">
+            <strong>No e-mail credentials are configured.</strong>
+            <p class="mb-0 mt-2">
+                Add SMTP server, sender address, username, and password before the application can send invitations, access codes, and signing notifications.
+            </p>
+        </div>
+    }
+
+    <div class="admin-tabs mt-4">
+        <ul class="nav nav-tabs" id="adminTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link @(usersTabActive ? "active" : null)" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-panel" type="button" role="tab" aria-controls="users-panel" aria-selected="@(usersTabActive.ToString().ToLower())">
+                    User Management
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link @(emailTabActive ? "active" : null)" id="email-tab" data-bs-toggle="tab" data-bs-target="#email-panel" type="button" role="tab" aria-controls="email-panel" aria-selected="@(emailTabActive.ToString().ToLower())">
+                    E-Mail Settings
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link @(authTabActive ? "active" : null)" id="auth-tab" data-bs-toggle="tab" data-bs-target="#auth-panel" type="button" role="tab" aria-controls="auth-panel" aria-selected="@(authTabActive.ToString().ToLower())">
+                    Authentication
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link @(certificatesTabActive ? "active" : null)" id="certificates-tab" data-bs-toggle="tab" data-bs-target="#certificates-panel" type="button" role="tab" aria-controls="certificates-panel" aria-selected="@(certificatesTabActive.ToString().ToLower())">
+                    Certificate Management
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content pt-4" id="adminTabsContent">
+            <div class="tab-pane fade @(certificatesTabActive ? "show active" : null)" id="certificates-panel" role="tabpanel" aria-labelledby="certificates-tab">
+    <div class="row mt-0">
+        <div class="col-12">
+            <div>
+                <h2>Signing Certificates</h2>
+                <p class="mb-0">Manage the certificate used to finalize signed PDFs.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-end mb-3">
+                <button class="btn btn-warning" type="button" data-bs-toggle="modal" data-bs-target="#uploadCertificateModal">
+                    <strong>Upload PFX</strong>
+                </button>
+            </div>
+            <table class="table table-hover" data-esign-table="overview" data-page-size="10">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Subject</th>
+                        <th>Valid Until</th>
+                        <th>Thumbprint</th>
+                        <th data-sortable="false">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Certificates.Any()) {
+                        <tr>
+                            <td colspan="5">No uploaded local certificates.</td>
+                        </tr>
+                    }
+                    @foreach (var certificate in Model.Certificates) {
+                        <tr class="@(certificate.IsActive ? "certificate-active-row" : null)">
+                            <td>
+                                <strong>@certificate.DisplayName</strong>
+                            </td>
+                            <td>@certificate.Subject</td>
+                            <td>@certificate.NotAfter</td>
+                            <td><code>@certificate.Thumbprint</code></td>
+                            <td>
+                                <div class="d-flex gap-2">
+                                    @if (certificate.IsActive) {
+                                        <button type="button" class="btn btn-sm btn-success" disabled aria-current="true">
+                                            Active
+                                        </button>
+                                    }
+                                    else {
+                                        <form method="post" asp-page-handler="ActivateCertificate">
+                                            <input type="hidden" name="certificateId" value="@certificate.Id" />
+                                            <button type="submit" class="btn btn-sm btn-outline-primary">Activate</button>
+                                        </form>
+                                    }
+                                    <button type="button"
+                                            class="btn btn-sm btn-danger"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#deleteCertificateModal"
+                                            data-certificate-id="@certificate.Id"
+                                            data-certificate-name="@certificate.DisplayName">
+                                        Delete
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            @if (Model.CertificateConfiguration.Provider == "AzureKeyVault" && !string.IsNullOrWhiteSpace(Model.CertificateConfiguration.AzureKeyVaultUri)) {
+                <div class="box-frame mt-3 certificate-active-row">
+                    <strong>Active external store</strong>
+                    <p class="mb-0">
+                        Azure Key Vault:
+                        <code>@Model.CertificateConfiguration.AzureKeyVaultUri</code>,
+                        certificate:
+                        <code>@Model.CertificateConfiguration.AzureCertificateName</code>.
+                    </p>
+                </div>
+            }
+            else if (Model.Certificates.Any(certificate => certificate.IsActive)) {
+                <form method="post" asp-page-handler="UseLocalPfx" class="mt-3">
+                    <button type="submit" class="btn btn-sm btn-success" disabled>Local PFX Active</button>
+                </form>
+            }
+
+            <div class="box mt-4">
+                <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                    <div>
+                        <h3>Azure Key Vault</h3>
+                        <p class="mb-0">Use a certificate from an Azure Key Vault for finalized PDFs.</p>
+                    </div>
+                    <span class="badge rounded-pill bg-@(Model.CertificateConfiguration.Provider == "AzureKeyVault" ? "success" : "secondary")">
+                        @(Model.CertificateConfiguration.Provider == "AzureKeyVault" ? "Active" : "Inactive")
+                    </span>
+                </div>
+                <form method="post" asp-page-handler="ConfigureAzureKeyVault">
+                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                    <div class="mb-3">
+                        <label asp-for="AzureKeyVault.VaultUri" class="form-label"></label>
+                        <input asp-for="AzureKeyVault.VaultUri" class="form-control" placeholder="https://contoso.vault.azure.net/" />
+                        <span asp-validation-for="AzureKeyVault.VaultUri" class="text-danger"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="AzureKeyVault.CertificateName" class="form-label"></label>
+                        <input asp-for="AzureKeyVault.CertificateName" class="form-control" />
+                        <span asp-validation-for="AzureKeyVault.CertificateName" class="text-danger"></span>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input asp-for="AzureKeyVault.UseDefaultAzureCredential" class="form-check-input" />
+                        <label asp-for="AzureKeyVault.UseDefaultAzureCredential" class="form-check-label"></label>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="AzureKeyVault.TenantId" class="form-label"></label>
+                            <input asp-for="AzureKeyVault.TenantId" class="form-control" />
+                            <span asp-validation-for="AzureKeyVault.TenantId" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="AzureKeyVault.ClientId" class="form-label"></label>
+                            <input asp-for="AzureKeyVault.ClientId" class="form-control" />
+                            <span asp-validation-for="AzureKeyVault.ClientId" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">Activate Azure Key Vault</button>
+                        @if (Model.CertificateConfiguration.Provider == "AzureKeyVault" && Model.Certificates.Any()) {
+                            <button type="submit" class="btn btn-outline-secondary" asp-page-handler="UseLocalPfx">Use Local PFX</button>
+                        }
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="deleteCertificateModal" tabindex="-1" aria-labelledby="deleteCertificateModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content app-modal-content">
+                <form method="post" asp-page-handler="DeleteCertificate">
+                    <div class="modal-header app-modal-header">
+                        <div class="app-modal-icon text-danger" aria-hidden="true">
+                            <i class="bi bi-trash3"></i>
+                        </div>
+                        <h5 class="modal-title" id="deleteCertificateModalLabel">Delete Certificate</h5>
+                        <p>
+                            This removes the uploaded PFX certificate from local certificate management.
+                        </p>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body app-modal-body">
+                        <input type="hidden" id="deleteCertificateId" name="certificateId" />
+                        <div class="auth-alert mb-0" role="alert">
+                            Delete <strong id="deleteCertificateName">this certificate</strong>?
+                        </div>
+                    </div>
+                    <div class="modal-footer app-modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger">Delete Certificate</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="uploadCertificateModal" tabindex="-1" aria-labelledby="uploadCertificateModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content app-modal-content">
+                <form id="uploadCertificateForm" method="post" asp-page-handler="UploadCertificate" enctype="multipart/form-data">
+                    <div class="modal-header app-modal-header">
+                        <div class="app-modal-icon" aria-hidden="true">
+                            <i class="bi bi-shield-lock"></i>
+                        </div>
+                        <h5 class="modal-title" id="uploadCertificateModalLabel">Upload PFX</h5>
+                        <p>Add a local signing certificate for finalized PDFs.</p>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body app-modal-body">
+                        <div asp-validation-summary="ModelOnly" class="auth-alert"></div>
+                        <div id="uploadCertificateError" class="auth-alert d-none" role="alert"></div>
+                        <div class="mb-3">
+                            <label asp-for="UploadCertificate.DisplayName" class="form-label"></label>
+                            <input asp-for="UploadCertificate.DisplayName" class="form-control" />
+                            <span asp-validation-for="UploadCertificate.DisplayName" class="text-danger"></span>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="UploadCertificate.File" class="form-label"></label>
+                            <input asp-for="UploadCertificate.File" class="form-control" accept=".pfx" />
+                            <span asp-validation-for="UploadCertificate.File" class="text-danger"></span>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="UploadCertificate.Password" class="form-label"></label>
+                            <input asp-for="UploadCertificate.Password" class="form-control" />
+                            <span asp-validation-for="UploadCertificate.Password" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="modal-footer app-modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-warning"><strong>Upload Certificate</strong></button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+            </div>
+
+            <div class="tab-pane fade @(emailTabActive ? "show active" : null)" id="email-panel" role="tabpanel" aria-labelledby="email-tab">
+    <div class="row mt-0">
+        <div class="col-12">
+            <h2>E-Mail Settings</h2>
+            <p class="mb-0">Manage SMTP delivery and the HTML templates used by signature workflows.</p>
+        </div>
+    </div>
+
+    <div class="admin-inner-tabs mt-4">
+        <ul class="nav nav-tabs" id="emailSettingsTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link @(Request.Query.ContainsKey("emailTemplate") ? null : "active")" id="smtp-settings-tab" data-bs-toggle="tab" data-bs-target="#smtp-settings-panel" type="button" role="tab" aria-controls="smtp-settings-panel" aria-selected="@((!Request.Query.ContainsKey("emailTemplate")).ToString().ToLower())">
+                    SMTP
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link @(Request.Query.ContainsKey("emailTemplate") ? "active" : null)" id="email-templates-tab" data-bs-toggle="tab" data-bs-target="#email-templates-panel" type="button" role="tab" aria-controls="email-templates-panel" aria-selected="@(Request.Query.ContainsKey("emailTemplate").ToString().ToLower())">
+                    HTML Templates
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content pt-4" id="emailSettingsTabsContent">
+            <div class="tab-pane fade @(Request.Query.ContainsKey("emailTemplate") ? null : "show active")" id="smtp-settings-panel" role="tabpanel" aria-labelledby="smtp-settings-tab">
+            <div class="box">
+                <h3>SMTP</h3>
+                <form method="post" asp-page-handler="SaveEmailSettings" autocomplete="off">
+                    <input type="hidden" asp-for="EmailTemplate.FileName" />
+                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                    <div class="mb-3">
+                        <label asp-for="EmailSettings.Server" class="form-label"></label>
+                        <input asp-for="EmailSettings.Server" class="form-control" />
+                        <span asp-validation-for="EmailSettings.Server" class="text-danger"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="EmailSettings.Port" class="form-label"></label>
+                        <input asp-for="EmailSettings.Port" class="form-control" />
+                        <span asp-validation-for="EmailSettings.Port" class="text-danger"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="EmailSettings.Username" class="form-label"></label>
+                        <input asp-for="EmailSettings.Username" class="form-control" />
+                        <span asp-validation-for="EmailSettings.Username" class="text-danger"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="EmailSettings.Password" class="form-label"></label>
+                        <input asp-for="EmailSettings.Password" class="form-control" placeholder="@(Model.EmailSettings.HasPassword ? "Stored password is kept" : null)" />
+                        <div class="form-text">
+                            @(Model.EmailSettings.PasswordRequiresReset ? "The stored password cannot be decrypted. Enter it again to re-encrypt it." : Model.EmailSettings.HasPassword ? "Leave blank to keep the stored encrypted password." : "Enter the SMTP password to store it encrypted.")
+                        </div>
+                        <span asp-validation-for="EmailSettings.Password" class="text-danger"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="EmailSettings.From" class="form-label"></label>
+                        <input asp-for="EmailSettings.From" class="form-control" />
+                        <span asp-validation-for="EmailSettings.From" class="text-danger"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="EmailSettings.Bcc" class="form-label"></label>
+                        <input asp-for="EmailSettings.Bcc" class="form-control" placeholder="admin@example.com; audit@example.com" />
+                        <div class="form-text">Separate multiple hidden copy recipients with commas or semicolons.</div>
+                        <span asp-validation-for="EmailSettings.Bcc" class="text-danger"></span>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save E-Mail Settings</button>
+                </form>
+            </div>
+            </div>
+            <div class="tab-pane fade @(Request.Query.ContainsKey("emailTemplate") ? "show active" : null)" id="email-templates-panel" role="tabpanel" aria-labelledby="email-templates-tab">
+            <div class="box">
+                <div class="mb-3">
+                    <div>
+                        <h3>HTML Templates</h3>
+                        <p class="mb-0">Edit the shared e-mail layout and the child content templates. Keep placeholder tokens intact.</p>
+                    </div>
+                </div>
+
+                @if (!Model.EmailTemplates.Any()) {
+                    <div class="alert alert-warning mb-0" role="alert">No HTML e-mail templates were found.</div>
+                }
+                else {
+                    var layoutTemplate = Model.EmailTemplates.FirstOrDefault(template =>
+                        string.Equals(template.FileName, "email-layout.html", StringComparison.OrdinalIgnoreCase));
+                    var contentTemplates = Model.EmailTemplates.Where(template =>
+                        !string.Equals(template.FileName, "email-layout.html", StringComparison.OrdinalIgnoreCase));
+
+                    @if (layoutTemplate != null) {
+                        <div class="mb-3">
+                            <div class="form-label">Shared layout</div>
+                            <a class="btn btn-sm @(layoutTemplate.FileName == Model.SelectedEmailTemplate.FileName ? "btn-primary" : "btn-outline-secondary")"
+                               asp-page="/Admin/Index"
+                               asp-route-emailTemplate="@layoutTemplate.FileName">
+                                @layoutTemplate.FileName
+                            </a>
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <div class="form-label">Content templates</div>
+                        <div class="d-flex flex-wrap gap-2">
+                            @foreach (var template in contentTemplates) {
+                                <a class="btn btn-sm @(template.FileName == Model.SelectedEmailTemplate.FileName ? "btn-primary" : "btn-outline-secondary")"
+                                   asp-page="/Admin/Index"
+                                   asp-route-emailTemplate="@template.FileName">
+                                    @template.FileName
+                                </a>
+                            }
+                        </div>
+                    </div>
+
+                    <form method="post" asp-page-handler="SaveEmailTemplate">
+                        <input type="hidden" asp-for="EmailTemplate.FileName" />
+                        <div class="email-template-dynamic-box" id="email-template-dynamic">
+                            <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                                <div>
+                                    <h4>Selected template: @Model.SelectedEmailTemplate.FileName</h4>
+                                    <p class="mb-0">These subject, preview text, and HTML contents belong only to this selected template and must be saved separately from SMTP settings.</p>
+                                </div>
+                                <span class="badge bg-info text-dark">Template-specific</span>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="form-label">Available placeholders:</div>
+                                @if (Model.SelectedEmailTemplate.Placeholders.Any()) {
+                                    <div class="d-flex flex-wrap gap-2">
+                                        @foreach (var placeholder in Model.SelectedEmailTemplate.Placeholders) {
+                                            <span class="badge bg-secondary">@placeholder</span>
+                                        }
+                                    </div>
+                                }
+                                else {
+                                    <div class="form-text">This template does not define any placeholders.</div>
+                                }
+                            </div>
+
+                            <div class="mb-3">
+                                <label asp-for="EmailTemplate.Subject" class="form-label"></label>
+                                <input asp-for="EmailTemplate.Subject" class="form-control" />
+                                <div class="form-text">This is used as the message subject and the title in the shared e-mail layout.</div>
+                                <span asp-validation-for="EmailTemplate.Subject" class="text-danger"></span>
+                            </div>
+                            <div class="mb-3">
+                                <label asp-for="EmailTemplate.Preheader" class="form-label"></label>
+                                <input asp-for="EmailTemplate.Preheader" class="form-control" />
+                                <div class="form-text">Short preview text shown by many e-mail clients.</div>
+                                <span asp-validation-for="EmailTemplate.Preheader" class="text-danger"></span>
+                            </div>
+                            <div class="mb-3">
+                                <label asp-for="EmailTemplate.Html" class="form-label">HTML</label>
+                                <textarea asp-for="EmailTemplate.Html" class="form-control email-template-editor" rows="18" spellcheck="false"></textarea>
+                                <span asp-validation-for="EmailTemplate.Html" class="text-danger"></span>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Save Selected Template</button>
+                        </div>
+                    </form>
+                }
+            </div>
+            </div>
+        </div>
+    </div>
+            </div>
+
+            <div class="tab-pane fade @(authTabActive ? "show active" : null)" id="auth-panel" role="tabpanel" aria-labelledby="auth-tab">
+    <div class="row mt-0">
+        <div class="col-12">
+            <h2>Authentication</h2>
+            <p class="mb-0">Configure local login companions, enterprise SSO, external bearer tokens, and local OAuth API clients.</p>
+        </div>
+    </div>
+
+    <form method="post" asp-page-handler="SaveAuthenticationSettings" autocomplete="off" class="mt-4">
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+        <div class="box mb-4">
+            <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                <div>
+                    <h3>Local OAuth Token Endpoint</h3>
+                    <p class="mb-0">Issue first-party client credentials tokens from <code>/api/v1/oauth/token</code> for integrations without an external identity provider.</p>
+                </div>
+                <span class="badge rounded-pill bg-@(Model.AuthenticationSettings.LocalOAuthEnabled ? "success" : "secondary")">
+                    @(Model.AuthenticationSettings.LocalOAuthEnabled ? "Enabled" : "Disabled")
+                </span>
+            </div>
+
+            <div class="form-check form-switch mb-3">
+                <input asp-for="AuthenticationSettings.LocalOAuthEnabled" class="form-check-input" role="switch" />
+                <label asp-for="AuthenticationSettings.LocalOAuthEnabled" class="form-check-label"></label>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label asp-for="AuthenticationSettings.LocalOAuthIssuer" class="form-label"></label>
+                    <input asp-for="AuthenticationSettings.LocalOAuthIssuer" class="form-control" placeholder="SignFabric" />
+                    <span asp-validation-for="AuthenticationSettings.LocalOAuthIssuer" class="text-danger"></span>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label asp-for="AuthenticationSettings.LocalOAuthAudience" class="form-label"></label>
+                    <input asp-for="AuthenticationSettings.LocalOAuthAudience" class="form-control" placeholder="signfabric-api" />
+                    <span asp-validation-for="AuthenticationSettings.LocalOAuthAudience" class="text-danger"></span>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label asp-for="AuthenticationSettings.LocalOAuthSigningKey" class="form-label"></label>
+                    <input asp-for="AuthenticationSettings.LocalOAuthSigningKey" class="form-control" placeholder="@(Model.AuthenticationSettings.LocalOAuthHasSigningKey ? "Stored signing key is kept" : "At least 32 characters")" />
+                    <div class="form-text">
+                        @(Model.AuthenticationSettings.LocalOAuthHasSigningKey ? "Leave blank to keep the current signing key." : "Use a high-entropy key of at least 32 characters.")
+                    </div>
+                    <span asp-validation-for="AuthenticationSettings.LocalOAuthSigningKey" class="text-danger"></span>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label asp-for="AuthenticationSettings.LocalOAuthAccessTokenMinutes" class="form-label"></label>
+                    <input asp-for="AuthenticationSettings.LocalOAuthAccessTokenMinutes" class="form-control" />
+                    <span asp-validation-for="AuthenticationSettings.LocalOAuthAccessTokenMinutes" class="text-danger"></span>
+                </div>
+            </div>
+            <div class="d-flex justify-content-between align-items-center gap-3 mt-2 mb-3">
+                <h4 class="mb-0">API Clients</h4>
+                <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#createApiClientModal">
+                    <i class="bi bi-key"></i>
+                    <strong>Create API Client</strong>
+                </button>
+            </div>
+            @if (Model.AuthenticationConfiguration.LocalOAuth.Clients.Any()) {
+                <table class="table table-hover" data-esign-table="overview" data-page-size="10">
+                    <thead>
+                        <tr>
+                            <th>Client ID</th>
+                            <th>Name</th>
+                            <th>User ID</th>
+                            <th>Scopes</th>
+                            <th data-sortable="false">Remove</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var client in Model.AuthenticationConfiguration.LocalOAuth.Clients) {
+                            <tr>
+                                <td><code>@client.ClientId</code></td>
+                                <td>@(!string.IsNullOrWhiteSpace(client.DisplayName) ? client.DisplayName : "-")</td>
+                                <td><code>@client.UserId</code></td>
+                                <td>@string.Join(", ", client.Scopes ?? new List<string>())</td>
+                                <td>
+                                    <button type="button"
+                                            class="btn btn-sm btn-danger"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#deleteApiClientModal"
+                                            data-client-id="@client.ClientId"
+                                            data-client-name="@(!string.IsNullOrWhiteSpace(client.DisplayName) ? client.DisplayName : client.ClientId)">
+                                        Remove
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else {
+                <div class="alert alert-info" role="alert">No local OAuth API clients have been created yet.</div>
+            }
+        </div>
+
+        <div class="box mb-4">
+            <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                <div>
+                    <h3>OpenID Connect Login</h3>
+                    <p class="mb-0">Show a single sign-on button on the login page while keeping local e-mail/password login available.</p>
+                </div>
+                <span class="badge rounded-pill bg-@(Model.AuthenticationSettings.OpenIdConnectEnabled ? "success" : "secondary")">
+                    @(Model.AuthenticationSettings.OpenIdConnectEnabled ? "Enabled" : "Disabled")
+                </span>
+            </div>
+            <div class="form-check form-switch mb-3">
+                <input asp-for="AuthenticationSettings.OpenIdConnectEnabled" class="form-check-input" role="switch" />
+                <label asp-for="AuthenticationSettings.OpenIdConnectEnabled" class="form-check-label"></label>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label asp-for="AuthenticationSettings.OpenIdConnectDisplayName" class="form-label"></label>
+                    <input asp-for="AuthenticationSettings.OpenIdConnectDisplayName" class="form-control" placeholder="Single Sign-On" />
+                    <span asp-validation-for="AuthenticationSettings.OpenIdConnectDisplayName" class="text-danger"></span>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label asp-for="AuthenticationSettings.OpenIdConnectResponseType" class="form-label"></label>
+                    <input asp-for="AuthenticationSettings.OpenIdConnectResponseType" class="form-control" placeholder="code" />
+                    <span asp-validation-for="AuthenticationSettings.OpenIdConnectResponseType" class="text-danger"></span>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label asp-for="AuthenticationSettings.OpenIdConnectAuthority" class="form-label"></label>
+                <input asp-for="AuthenticationSettings.OpenIdConnectAuthority" class="form-control" placeholder="https://login.microsoftonline.com/{tenant-id}/v2.0" />
+                <span asp-validation-for="AuthenticationSettings.OpenIdConnectAuthority" class="text-danger"></span>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label asp-for="AuthenticationSettings.OpenIdConnectClientId" class="form-label"></label>
+                    <input asp-for="AuthenticationSettings.OpenIdConnectClientId" class="form-control" />
+                    <span asp-validation-for="AuthenticationSettings.OpenIdConnectClientId" class="text-danger"></span>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label asp-for="AuthenticationSettings.OpenIdConnectClientSecret" class="form-label"></label>
+                    <input asp-for="AuthenticationSettings.OpenIdConnectClientSecret" class="form-control" placeholder="@(Model.AuthenticationSettings.OpenIdConnectHasClientSecret ? "Stored secret is kept" : null)" />
+                    <div class="form-text">
+                        @(Model.AuthenticationSettings.OpenIdConnectHasClientSecret ? "Leave blank to keep the current client secret." : "Enter the client secret. Store production secrets outside committed appsettings.")
+                    </div>
+                    <span asp-validation-for="AuthenticationSettings.OpenIdConnectClientSecret" class="text-danger"></span>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label asp-for="AuthenticationSettings.OpenIdConnectCallbackPath" class="form-label"></label>
+                    <input asp-for="AuthenticationSettings.OpenIdConnectCallbackPath" class="form-control" placeholder="/signin-oidc" />
+                    <span asp-validation-for="AuthenticationSettings.OpenIdConnectCallbackPath" class="text-danger"></span>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label asp-for="AuthenticationSettings.OpenIdConnectSignedOutCallbackPath" class="form-label"></label>
+                    <input asp-for="AuthenticationSettings.OpenIdConnectSignedOutCallbackPath" class="form-control" placeholder="/signout-callback-oidc" />
+                    <span asp-validation-for="AuthenticationSettings.OpenIdConnectSignedOutCallbackPath" class="text-danger"></span>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label asp-for="AuthenticationSettings.OpenIdConnectScopes" class="form-label"></label>
+                <textarea asp-for="AuthenticationSettings.OpenIdConnectScopes" class="form-control" rows="3" placeholder="openid&#10;profile&#10;email"></textarea>
+                <div class="form-text">Separate scopes with spaces, commas, semicolons, or new lines.</div>
+                <span asp-validation-for="AuthenticationSettings.OpenIdConnectScopes" class="text-danger"></span>
+            </div>
+            <div class="d-flex flex-wrap gap-4">
+                <div class="form-check form-switch">
+                    <input asp-for="AuthenticationSettings.OpenIdConnectSaveTokens" class="form-check-input" role="switch" />
+                    <label asp-for="AuthenticationSettings.OpenIdConnectSaveTokens" class="form-check-label"></label>
+                </div>
+                <div class="form-check form-switch">
+                    <input asp-for="AuthenticationSettings.OpenIdConnectAutoProvisionUsers" class="form-check-input" role="switch" />
+                    <label asp-for="AuthenticationSettings.OpenIdConnectAutoProvisionUsers" class="form-check-label"></label>
+                </div>
+            </div>
+        </div>
+
+        <div class="box mb-4">
+            <h3>External Bearer Tokens</h3>
+            <p>Configure validation for JWTs issued by an external OAuth/OIDC provider for the Web API.</p>
+            <div class="mb-3">
+                <label asp-for="AuthenticationSettings.BearerAuthority" class="form-label"></label>
+                <input asp-for="AuthenticationSettings.BearerAuthority" class="form-control" placeholder="https://login.microsoftonline.com/{tenant-id}/v2.0" />
+                <span asp-validation-for="AuthenticationSettings.BearerAuthority" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="AuthenticationSettings.BearerAudience" class="form-label"></label>
+                <input asp-for="AuthenticationSettings.BearerAudience" class="form-control" placeholder="api://your-api-client-id" />
+                <span asp-validation-for="AuthenticationSettings.BearerAudience" class="text-danger"></span>
+            </div>
+            <div class="form-check form-switch">
+                <input asp-for="AuthenticationSettings.BearerRequireHttpsMetadata" class="form-check-input" role="switch" />
+                <label asp-for="AuthenticationSettings.BearerRequireHttpsMetadata" class="form-check-label"></label>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <button type="submit" class="btn btn-primary">Save Authentication Settings</button>
+        </div>
+    </form>
+
+    <div class="modal fade" id="createApiClientModal" tabindex="-1" aria-labelledby="createApiClientModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content app-modal-content">
+                <form method="post" asp-page-handler="CreateLocalOAuthClient" autocomplete="off">
+                    <div class="modal-header app-modal-header">
+                        <div class="app-modal-icon" aria-hidden="true">
+                            <i class="bi bi-key"></i>
+                        </div>
+                        <h5 class="modal-title" id="createApiClientModalLabel">Create API Client</h5>
+                        <p>Generate a client id and one-time secret for an integration that uses the local OAuth token endpoint.</p>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body app-modal-body">
+                        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                        <div class="mb-3">
+                            <label asp-for="LocalOAuthClient.DisplayName" class="form-label"></label>
+                            <input asp-for="LocalOAuthClient.DisplayName" class="form-control" placeholder="CRM Integration" />
+                            <span asp-validation-for="LocalOAuthClient.DisplayName" class="text-danger"></span>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="LocalOAuthClient.ClientId" class="form-label"></label>
+                            <input asp-for="LocalOAuthClient.ClientId" class="form-control" placeholder="Leave blank to generate" />
+                            <div class="form-text">Optional. Use a stable name if the external system already expects one.</div>
+                            <span asp-validation-for="LocalOAuthClient.ClientId" class="text-danger"></span>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="LocalOAuthClient.UserId" class="form-label"></label>
+                            <select asp-for="LocalOAuthClient.UserId" class="form-select">
+                                <option value="">Select the envelope owner</option>
+                                @foreach (var user in Model.Users) {
+                                    <option value="@user.Id">@(!string.IsNullOrWhiteSpace(user.DisplayName) ? user.DisplayName : user.Email) (@user.Email)</option>
+                                }
+                            </select>
+                            <div class="form-text">Envelopes created by this client are stored under this user.</div>
+                            <span asp-validation-for="LocalOAuthClient.UserId" class="text-danger"></span>
+                        </div>
+                        <div class="d-flex flex-wrap gap-4">
+                            <div class="form-check">
+                                <input asp-for="LocalOAuthClient.AllowEnvelopeCreate" class="form-check-input" />
+                                <label asp-for="LocalOAuthClient.AllowEnvelopeCreate" class="form-check-label"></label>
+                            </div>
+                            <div class="form-check">
+                                <input asp-for="LocalOAuthClient.AllowEnvelopeRead" class="form-check-input" />
+                                <label asp-for="LocalOAuthClient.AllowEnvelopeRead" class="form-check-label"></label>
+                            </div>
+                        </div>
+                        <span asp-validation-for="LocalOAuthClient.AllowEnvelopeCreate" class="text-danger"></span>
+                    </div>
+                    <div class="modal-footer app-modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-warning">Create Client</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="deleteApiClientModal" tabindex="-1" aria-labelledby="deleteApiClientModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content app-modal-content">
+                <form method="post" asp-page-handler="DeleteLocalOAuthClient">
+                    <div class="modal-header app-modal-header">
+                        <div class="app-modal-icon text-danger" aria-hidden="true">
+                            <i class="bi bi-trash3"></i>
+                        </div>
+                        <h5 class="modal-title" id="deleteApiClientModalLabel">Remove API Client</h5>
+                        <p>
+                            This immediately prevents the integration from requesting new local OAuth tokens.
+                        </p>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body app-modal-body">
+                        <input type="hidden" id="deleteApiClientId" name="clientId" />
+                        <div class="auth-alert mb-0" role="alert">
+                            Remove <strong id="deleteApiClientName">this API client</strong>?
+                        </div>
+                    </div>
+                    <div class="modal-footer app-modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger">Remove Client</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Model.CreatedLocalOAuthClientId) && !string.IsNullOrWhiteSpace(Model.CreatedLocalOAuthClientSecret)) {
+        <div class="modal fade" id="apiClientSecretModal" tabindex="-1" aria-labelledby="apiClientSecretModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content app-modal-content">
+                    <div class="modal-header app-modal-header">
+                        <div class="app-modal-icon" aria-hidden="true">
+                            <i class="bi bi-shield-lock"></i>
+                        </div>
+                        <h5 class="modal-title" id="apiClientSecretModalLabel">Copy this API client secret now</h5>
+                        <p>It is shown only once. Send the client id and secret to the integration owner through a secure channel.</p>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body app-modal-body">
+                        <div class="mb-3">
+                            <label class="form-label" for="createdLocalOAuthClientId">Client ID</label>
+                            <div class="input-group">
+                                <input id="createdLocalOAuthClientId" class="form-control" value="@Model.CreatedLocalOAuthClientId" readonly />
+                                <button type="button" class="btn btn-outline-secondary" data-esign-action="copy-link" data-target="createdLocalOAuthClientId" aria-label="Copy client id">
+                                    <i class="bi bi-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label" for="createdLocalOAuthClientSecret">Client Secret</label>
+                            <div class="input-group">
+                                <input id="createdLocalOAuthClientSecret" class="form-control" value="@Model.CreatedLocalOAuthClientSecret" readonly />
+                                <button type="button" class="btn btn-outline-secondary" data-esign-action="copy-link" data-target="createdLocalOAuthClientSecret" aria-label="Copy client secret">
+                                    <i class="bi bi-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer app-modal-footer">
+                        <button type="button" class="btn btn-warning" data-bs-dismiss="modal">I have copied it</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+            </div>
+
+            <div class="tab-pane fade @(usersTabActive ? "show active" : null)" id="users-panel" role="tabpanel" aria-labelledby="users-tab">
+    <div class="row mt-0">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <h2>User Management</h2>
+            <button class="btn btn-warning" type="button" data-bs-toggle="modal" data-bs-target="#inviteUserModal">
+                <strong>Create Account</strong>
+            </button>
+        </div>
+    </div>
+
+    <div class="modal fade" id="inviteUserModal" tabindex="-1" aria-labelledby="inviteUserModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content app-modal-content">
+                <form method="post" asp-page-handler="Invite" autocomplete="off">
+                    <div class="modal-header app-modal-header">
+                        <div class="app-modal-icon" aria-hidden="true">
+                            <i class="bi bi-person-plus"></i>
+                        </div>
+                        <h5 class="modal-title" id="inviteUserModalLabel">Create Account</h5>
+                        <p>Create a user profile and choose the account security settings.</p>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body app-modal-body">
+                        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="InviteUser.FirstName" class="form-label"></label>
+                                <input asp-for="InviteUser.FirstName" class="form-control" />
+                                <span asp-validation-for="InviteUser.FirstName" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="InviteUser.LastName" class="form-label"></label>
+                                <input asp-for="InviteUser.LastName" class="form-control" />
+                                <span asp-validation-for="InviteUser.LastName" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="InviteUser.Email" class="form-label"></label>
+                            <input asp-for="InviteUser.Email" class="form-control" />
+                            <span asp-validation-for="InviteUser.Email" class="text-danger"></span>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="InviteUser.TemporaryPassword" class="form-label"></label>
+                            <div class="input-group temporary-password-group">
+                                <input asp-for="InviteUser.TemporaryPassword" class="form-control" type="text" autocomplete="new-password" />
+                                <button class="btn btn-outline-secondary" type="button" data-esign-action="generate-temporary-password" title="Generate temporary password">
+                                    <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+                                    <span class="visually-hidden">Generate temporary password</span>
+                                </button>
+                            </div>
+                            <div class="form-text">The user should change this password after first sign-in.</div>
+                            <span asp-validation-for="InviteUser.TemporaryPassword" class="text-danger"></span>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="InviteUser.Role" class="form-label"></label>
+                            <select asp-for="InviteUser.Role" class="form-select">
+                                @foreach (var role in Model.AvailableRoles) {
+                                    <option value="@role">@role</option>
+                                }
+                            </select>
+                            <span asp-validation-for="InviteUser.Role" class="text-danger"></span>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input asp-for="InviteUser.SendInvitationEmail" class="form-check-input" />
+                            <label asp-for="InviteUser.SendInvitationEmail" class="form-check-label"></label>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input asp-for="InviteUser.RequireTwoFactor" class="form-check-input" />
+                            <label asp-for="InviteUser.RequireTwoFactor" class="form-check-label"></label>
+                        </div>
+                    </div>
+                    <div class="modal-footer app-modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-warning"><strong>Create Account</strong></button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <table class="table table-hover" data-esign-table="overview" data-page-size="10">
+                <thead>
+                    <tr>
+                        <th>E-Mail</th>
+                        <th>Name</th>
+                        <th>Confirmed</th>
+                        <th>2FA</th>
+                        <th>Status</th>
+                        <th>Roles</th>
+                        <th data-sortable="false">Delete</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in Model.Users) {
+                        <tr>
+                            <td>@user.Email</td>
+                            <td>@(!string.IsNullOrWhiteSpace(user.DisplayName) ? user.DisplayName : "-")</td>
+                            <td>
+                                <span class="badge rounded-pill bg-@(user.EmailConfirmed ? "success" : "secondary")">
+                                    @(user.EmailConfirmed ? "Yes" : "No")
+                                </span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <form method="post" asp-page-handler="SetTwoFactor" class="m-0">
+                                        <input type="hidden" name="userId" value="@user.Id" />
+                                        <input type="hidden" name="enabled" value="@((!user.TwoFactorEnabled).ToString().ToLower())" />
+                                        <div class="form-check form-switch admin-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" role="switch" aria-label="Require two-factor authentication for @user.Email" checked="@user.TwoFactorEnabled" onchange="this.form.submit()" />
+                                        </div>
+                                    </form>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <form method="post" asp-page-handler="SetEnabled" class="m-0">
+                                        <input type="hidden" name="userId" value="@user.Id" />
+                                        <input type="hidden" name="enabled" value="@user.IsDisabled.ToString().ToLower()" />
+                                        <div class="form-check form-switch admin-switch mb-0">
+                                            <input class="form-check-input" type="checkbox" role="switch" aria-label="Enable account for @user.Email" checked="@(!user.IsDisabled)" onchange="this.form.submit()" />
+                                        </div>
+                                    </form>
+                                </div>
+                            </td>
+                            <td>
+                                <form method="post" asp-page-handler="SetRole" class="d-flex gap-2 align-items-center">
+                                    <input type="hidden" name="userId" value="@user.Id" />
+                                    <select name="role" class="form-select form-select-sm">
+                                        @foreach (var role in Model.AvailableRoles) {
+                                            <option value="@role" selected="@(user.Roles.Contains(role))">@role</option>
+                                        }
+                                    </select>
+                                    <button type="submit" class="btn btn-sm btn-outline-primary">Apply</button>
+                                </form>
+                            </td>
+                            <td>
+                                <button type="button"
+                                        class="btn btn-sm btn-danger"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#deleteUserModal"
+                                        data-user-id="@user.Id"
+                                        data-user-email="@user.Email">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="modal fade" id="deleteUserModal" tabindex="-1" aria-labelledby="deleteUserModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content app-modal-content">
+                <form method="post" asp-page-handler="DeleteUser">
+                    <div class="modal-header app-modal-header">
+                        <div class="app-modal-icon text-danger" aria-hidden="true">
+                            <i class="bi bi-trash3"></i>
+                        </div>
+                        <h5 class="modal-title" id="deleteUserModalLabel">Delete User</h5>
+                        <p>
+                            This permanently removes the selected user account and cannot be undone.
+                        </p>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body app-modal-body">
+                        <input type="hidden" id="deleteUserId" name="userId" />
+                        <div class="auth-alert mb-0" role="alert">
+                            Delete <strong id="deleteUserEmail">this user</strong>?
+                        </div>
+                    </div>
+                    <div class="modal-footer app-modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger">Delete User</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            var generateButton = document.querySelector("[data-esign-action='generate-temporary-password']");
+            var passwordInput = document.getElementById("InviteUser_TemporaryPassword");
+            var uploadForm = document.getElementById("uploadCertificateForm");
+            var uploadError = document.getElementById("uploadCertificateError");
+            var deleteCertificateModal = document.getElementById("deleteCertificateModal");
+            var deleteUserModal = document.getElementById("deleteUserModal");
+            var deleteApiClientModal = document.getElementById("deleteApiClientModal");
+
+            if (deleteCertificateModal) {
+                deleteCertificateModal.addEventListener("show.bs.modal", function (event) {
+                    var button = event.relatedTarget;
+                    var certificateId = button ? button.getAttribute("data-certificate-id") : "";
+                    var certificateName = button ? button.getAttribute("data-certificate-name") : "";
+                    var certificateIdInput = document.getElementById("deleteCertificateId");
+                    var certificateNameElement = document.getElementById("deleteCertificateName");
+
+                    if (certificateIdInput) {
+                        certificateIdInput.value = certificateId || "";
+                    }
+
+                    if (certificateNameElement) {
+                        certificateNameElement.textContent = certificateName || "this certificate";
+                    }
+                });
+            }
+
+            if (deleteUserModal) {
+                deleteUserModal.addEventListener("show.bs.modal", function (event) {
+                    var button = event.relatedTarget;
+                    var userId = button ? button.getAttribute("data-user-id") : "";
+                    var userEmail = button ? button.getAttribute("data-user-email") : "";
+                    var userIdInput = document.getElementById("deleteUserId");
+                    var userEmailElement = document.getElementById("deleteUserEmail");
+
+                    if (userIdInput) {
+                        userIdInput.value = userId || "";
+                    }
+
+                    if (userEmailElement) {
+                        userEmailElement.textContent = userEmail || "this user";
+                    }
+                });
+            }
+
+            if (deleteApiClientModal) {
+                deleteApiClientModal.addEventListener("show.bs.modal", function (event) {
+                    var button = event.relatedTarget;
+                    var clientId = button ? button.getAttribute("data-client-id") : "";
+                    var clientName = button ? button.getAttribute("data-client-name") : "";
+                    var clientIdInput = document.getElementById("deleteApiClientId");
+                    var clientNameElement = document.getElementById("deleteApiClientName");
+
+                    if (clientIdInput) {
+                        clientIdInput.value = clientId || "";
+                    }
+
+                    if (clientNameElement) {
+                        clientNameElement.textContent = clientName || "this API client";
+                    }
+                });
+            }
+
+            if (uploadForm && uploadError) {
+                uploadForm.addEventListener("submit", async function (event) {
+                    event.preventDefault();
+
+                    uploadError.classList.add("d-none");
+                    uploadError.textContent = "";
+
+                    var submitButton = uploadForm.querySelector("button[type='submit']");
+                    if (submitButton) {
+                        submitButton.disabled = true;
+                    }
+
+                    try {
+                        var response = await fetch(uploadForm.action, {
+                            method: "POST",
+                            body: new FormData(uploadForm),
+                            headers: {
+                                "X-Requested-With": "XMLHttpRequest"
+                            }
+                        });
+
+                        var result = await response.json();
+                        if (response.ok && result.success) {
+                            window.location.href = result.redirectUrl || window.location.href;
+                            return;
+                        }
+
+                        var errors = result.errors && result.errors.length
+                            ? result.errors
+                            : ["The certificate could not be uploaded."];
+
+                        errors.forEach(function (error) {
+                            var item = document.createElement("div");
+                            item.textContent = error;
+                            uploadError.appendChild(item);
+                        });
+                        uploadError.classList.remove("d-none");
+                    }
+                    catch {
+                        uploadError.textContent = "The certificate could not be uploaded.";
+                        uploadError.classList.remove("d-none");
+                    }
+                    finally {
+                        if (submitButton) {
+                            submitButton.disabled = false;
+                        }
+                    }
+                });
+            }
+
+            if (!generateButton || !passwordInput) {
+                return;
+            }
+
+            function pick(characters) {
+                var values = new Uint32Array(1);
+                window.crypto.getRandomValues(values);
+                return characters[values[0] % characters.length];
+            }
+
+            function shuffle(values) {
+                for (var index = values.length - 1; index > 0; index--) {
+                    var random = new Uint32Array(1);
+                    window.crypto.getRandomValues(random);
+                    var swapIndex = random[0] % (index + 1);
+                    var value = values[index];
+                    values[index] = values[swapIndex];
+                    values[swapIndex] = value;
+                }
+
+                return values;
+            }
+
+            function generatePassword() {
+                var lower = "abcdefghijkmnopqrstuvwxyz";
+                var upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+                var digits = "23456789";
+                var symbols = "!$%";
+                var all = lower + upper + digits + symbols;
+                var password = [
+                    pick(lower),
+                    pick(upper),
+                    pick(digits),
+                    pick(symbols)
+                ];
+
+                while (password.length < 12) {
+                    password.push(pick(all));
+                }
+
+                return shuffle(password).join("");
+            }
+
+            generateButton.addEventListener("click", function () {
+                passwordInput.value = generatePassword();
+                passwordInput.focus();
+                passwordInput.select();
+            });
+        });
+    </script>
+    @if (Model.ShowInviteUserModal) {
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                var modalElement = document.getElementById("inviteUserModal");
+                if (modalElement && window.bootstrap) {
+                    var modal = bootstrap.Modal.getInstance
+                        ? bootstrap.Modal.getInstance(modalElement)
+                        : null;
+
+                    if (!modal) {
+                        modal = new bootstrap.Modal(modalElement);
+                    }
+
+                    modal.show();
+                }
+            });
+        </script>
+    }
+    @if (Model.ShowUploadCertificateModal) {
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                var modalElement = document.getElementById("uploadCertificateModal");
+                if (modalElement && window.bootstrap) {
+                    var modal = bootstrap.Modal.getInstance
+                        ? bootstrap.Modal.getInstance(modalElement)
+                        : null;
+
+                    if (!modal) {
+                        modal = new bootstrap.Modal(modalElement);
+                    }
+
+                    modal.show();
+                }
+            });
+        </script>
+    }
+    @if (Model.ShowCreateApiClientModal) {
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                var modalElement = document.getElementById("createApiClientModal");
+                if (modalElement && window.bootstrap) {
+                    var modal = bootstrap.Modal.getInstance
+                        ? bootstrap.Modal.getInstance(modalElement)
+                        : null;
+
+                    if (!modal) {
+                        modal = new bootstrap.Modal(modalElement);
+                    }
+
+                    modal.show();
+                }
+            });
+        </script>
+    }
+    @if (!string.IsNullOrWhiteSpace(Model.CreatedLocalOAuthClientId) && !string.IsNullOrWhiteSpace(Model.CreatedLocalOAuthClientSecret)) {
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                var modalElement = document.getElementById("apiClientSecretModal");
+                if (modalElement && window.bootstrap) {
+                    var modal = bootstrap.Modal.getInstance
+                        ? bootstrap.Modal.getInstance(modalElement)
+                        : null;
+
+                    if (!modal) {
+                        modal = new bootstrap.Modal(modalElement);
+                    }
+
+                    modal.show();
+                }
+            });
+        </script>
+    }
+}

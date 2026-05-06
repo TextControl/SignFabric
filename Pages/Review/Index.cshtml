@@ -1,0 +1,32 @@
+@page "/review"
+@model SignFabric.Pages.Review.IndexModel
+
+@{
+    ViewData["Title"] = "Access Envelope";
+}
+
+<section id="home" class="container section auth-section">
+    <div class="auth-card">
+        <div class="auth-icon" aria-hidden="true">
+            <i class="bi bi-vector-pen"></i>
+        </div>
+        <h1>Access Document</h1>
+        <p>Enter the document access ID you received to review and sign.</p>
+
+        <form method="post" class="auth-form">
+            @if (Model.Error == true) {
+                <div class="auth-alert" role="alert">
+                    The envelope is invalid. Please check the access ID.
+                </div>
+            }
+
+            <div class="mb-3 text-start">
+                <label for="envelopeId" class="form-label">Document Access ID</label>
+                <input asp-for="EnvelopeID" type="text" required placeholder="Copy and paste the document access ID" class="form-control" id="envelopeId" aria-describedby="EnvelopeHelp">
+                <div id="EnvelopeHelp" class="form-text">The document access ID you received.</div>
+            </div>
+
+            <button class="btn btn-warning auth-submit" type="submit">Access Document</button>
+        </form>
+    </div>
+</section>

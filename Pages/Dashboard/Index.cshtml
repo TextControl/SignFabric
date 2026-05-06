@@ -1,0 +1,125 @@
+@page "/dashboard"
+@model SignFabric.Pages.Dashboard.IndexModel
+
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<section id="home" class="container section">
+
+    <h1>Dashboard</h1>
+    <p>Welcome! Here's your signing activity overview.</p>
+
+    <div class="row mt-5">
+        <div class="col-md-3">
+            <div class="box">
+                <p><strong>Pending Signatures</strong></p>
+                <h2>@Model.PendingSignatures</h2>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="box">
+                <p><strong>Completed Documents</strong></p>
+                <h2>@Model.CompletedDocuments</h2>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="box">
+                <p><strong>Total Templates</strong></p>
+                <h2>@Model.Templates.Count</h2>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="box">
+                <p><strong>Total Envelopes</strong></p>
+                <h2>@Model.Envelopes.Count</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-5">
+        <div class="col-md-12">
+            <div class="box highlight">
+                <h4>Quick Actions</h4>
+                @if (Model.CanRequestSignatures) {
+                    <a asp-page="/New/Index" class="btn btn-success me-2">
+                        <i class="bi bi-send-fill align-middle" aria-hidden="true"></i> New Envelope
+                    </a>
+                }
+                else {
+                    <button type="button" class="btn btn-outline-secondary me-2" disabled title="A signing certificate is required before signatures can be requested.">
+                        <i class="bi bi-send-fill align-middle" aria-hidden="true"></i> New Envelope
+                    </button>
+                }
+                <a asp-page="/Templates/Create" class="btn btn-primary me-2">
+                    <i class="bi bi-plus-lg align-middle" aria-hidden="true"></i> New Template
+                </a>
+                <a asp-page="/Templates/Index" class="btn btn-info me-2">
+                    <i class="bi bi-file-earmark-text align-middle" aria-hidden="true"></i> My Templates
+                </a>
+                @if (!Model.CanRequestSignatures) {
+                    <div class="alert alert-warning certificate-required-alert mt-3 mb-0" role="alert">
+                        <strong>A signing certificate is required to request signatures.</strong>
+                        <p class="mb-0 mt-2">Upload and activate a local PFX certificate or configure Azure Key Vault in the admin portal.</p>
+                        @if (User.IsInRole(SignFabric.Application.Identity.AppRoles.Admin)) {
+                            <a href="/admin" class="btn btn-warning mt-3"><strong>Open Admin Portal</strong></a>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    @if (Model.Envelopes.Count > 0) {
+        <div class="row mt-5">
+            <div class="col-md-12">
+                <h2 class="mb-3">Recent Envelopes</h2>
+                <table class="table table-hover mt-5" data-esign-table="overview" data-page-size="10">
+                    <thead>
+                        <tr>
+                            <th class="align-middle" scope="col">Subject</th>
+                            <th class="align-middle" scope="col">Status</th>
+                            <th class="align-middle" scope="col">Recipients</th>
+                            <th class="align-middle" scope="col">Created</th>
+                            <th class="align-middle" scope="col" data-sortable="false"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var env in Model.Envelopes) {
+                            <tr>
+                                <th class="align-middle" scope="row"><a asp-page="/Envelopes/Details" asp-route-id="@env.EnvelopeID">@env.Name</a></th>
+                                <td class="align-middle">@env.Status</td>
+                                <td class="align-middle">@env.Signers.Count</td>
+                                <td class="align-middle">@env.Created</td>
+                                <td class="align-middle">
+                                    <div class="btn-group">
+                                        <a asp-page="/Envelopes/Details" asp-route-id="@env.EnvelopeID" class="btn btn-primary">Summary</a>
+                                        <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <span class="visually-hidden">Toggle Dropdown</span>
+                                        </button>
+
+                                        <ul class="dropdown-menu">
+                                            @if (env.Status == EnvelopeStatus.Incomplete) {
+                                                <li><a asp-page="/Envelopes/Create" asp-route-id="@env.EnvelopeID" class="dropdown-item">Continue</a></li>
+                                            }
+                                            @if (env.Status == EnvelopeStatus.Signed) {
+                                                <li><a target="_blank" asp-page="/Envelopes/Details" asp-page-handler="Download" asp-route-id="@env.EnvelopeID" class="dropdown-item">Download</a></li>
+                                            }
+                                            @if (env.Status == EnvelopeStatus.Sent) {
+                                                <li><a asp-page="/Envelopes/Create" asp-route-id="@env.EnvelopeID" class="dropdown-item">Resend</a></li>
+                                            }
+                                            @if (env.Status == EnvelopeStatus.Faulted) {
+                                                <li><a asp-page="/Envelopes/Details" asp-route-id="@env.EnvelopeID" class="dropdown-item">View Error</a></li>
+                                            }
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+</section>

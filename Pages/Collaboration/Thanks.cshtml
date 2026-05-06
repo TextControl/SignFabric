@@ -1,0 +1,18 @@
+@page "/collaboration/thanks/{id}"
+@model SignFabric.Pages.Collaboration.ThanksModel
+
+@{
+    ViewData["Title"] = "Thank You";
+}
+
+<section id="home" class="container section">
+    <div class="row mt-5">
+        <div class="col-md-8 offset-md-2 text-center">
+            <i class="bi bi-check-circle-fill text-success" style="font-size: 60px;" aria-hidden="true"></i>
+            <h1 class="mt-3">Thank You for Collaborating!</h1>
+            <p class="lead">Your contributions have been recorded.</p>
+            
+            <a href="/dashboard" class="btn btn-primary mt-3"><strong>Back to Dashboard</strong></a>
+        </div>
+    </div>
+</section>

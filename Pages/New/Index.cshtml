@@ -1,0 +1,55 @@
+@page "/new"
+@model SignFabric.Pages.New.IndexModel
+
+@{
+    ViewData["Title"] = "Create a new Envelope";
+}
+
+<section id="home" class="container section auth-section">
+    @if (Model.CanRequestSignatures) {
+        <div id="uploadbox" class="auth-card auth-card-wide new-envelope-upload-card">
+            <div class="auth-icon" aria-hidden="true">
+                <i class="bi bi-file-earmark-plus"></i>
+            </div>
+            <h1>New Envelope</h1>
+            <p>Upload a document to prepare recipients, fields, and the signature request.</p>
+
+            <div class="new-envelope-dropzone" data-esign-dropzone>
+                <i class="bi bi-cloud-arrow-up" aria-hidden="true"></i>
+                <strong>Drop a document here</strong>
+                <span>or choose a file from your computer.</span>
+            </div>
+
+            <input data-esign-action="add-file" type="file" id="files" class="prevent" hidden accept="@Model.AcceptedFileTypes" />
+            <button data-esign-action="open-upload" data-target="files" class="btn btn-warning auth-submit prevent" type="button">
+                Upload Document
+            </button>
+
+            <div class="mt-3 waitstate">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        </div>
+    }
+    else {
+        <div class="auth-card auth-card-wide new-envelope-upload-card">
+            <div class="auth-icon" aria-hidden="true">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <h1>Certificate Required</h1>
+            <p>A signing certificate is required before you can request signatures.</p>
+
+            <div class="auth-alert certificate-required-alert" role="alert">
+                Upload and activate a local PFX certificate or configure Azure Key Vault in the admin portal before creating a new signature request.
+            </div>
+
+            @if (User.IsInRole(SignFabric.Application.Identity.AppRoles.Admin)) {
+                <a href="/admin" class="btn btn-warning auth-submit"><strong>Open Admin Portal</strong></a>
+            }
+            else {
+                <button type="button" class="btn btn-outline-secondary auth-submit" disabled>Upload Document</button>
+            }
+        </div>
+    }
+</section>

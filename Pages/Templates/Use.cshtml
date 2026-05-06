@@ -1,0 +1,97 @@
+@page "/templates/use/{id}"
+@model SignFabric.Pages.Templates.UseModel
+@using Microsoft.AspNetCore.Identity
+@inject SignInManager<LiteDB.Identity.Models.LiteDbUser> SignInManager
+
+@{
+    ViewData["Title"] = "Use Template";
+}
+
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 5">
+    <div id="liveToast" class="toast hide text-white bg-success" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <i class="bi bi-clipboard-check" aria-hidden="true"></i>&nbsp;
+            <strong class="me-auto">Text Control eSign</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+        </div>
+        <div id="liveToastMessage" class="toast-body"></div>
+    </div>
+</div>
+
+<section id="home" class="container section">
+
+    <h2>Use Template: <strong>@Model.Template.Name</strong></h2>
+    <p>Create a new envelope from this template</p>
+
+    <div class="row mt-5">
+        <div class="col-md-8 box highlight" id="processSteps">
+            <h4>Create Envelope from Template</h4>
+
+            <div class="row mt-5">
+                <div class="col-md-1 offset-1 status-border status-border-checked">
+                    <span class="status status-check"><i class="bi bi-file-earmark-text" aria-hidden="true"></i></span>
+                </div>
+                <div class="col-md-8 offset-md-1 status-content">
+                    <p>
+                        <strong>Template</strong>
+                        <br />
+                        @Model.Template.Name
+                    </p>
+                </div>
+            </div>
+
+            <div class="row mt-5">
+                <div class="col-md-1 offset-1 status-border">
+                    <span class="status status-active"><i class="bi bi-person-lines-fill" aria-hidden="true"></i></span>
+                </div>
+                <div class="col-md-8 offset-md-1 status-content">
+                    <p>
+                        <strong>Create New Envelope</strong>
+                        <br />
+                        Enter envelope details and recipients
+                    </p>
+
+                    @if (!string.IsNullOrEmpty(Model.ErrorMessage)) {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            @Model.ErrorMessage
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    }
+
+                    @if (!Model.CanRequestSignatures) {
+                        <div class="alert alert-warning certificate-required-alert" role="alert">
+                            <strong>A signing certificate is required to request signatures.</strong>
+                            <p class="mb-0 mt-2">Upload and activate a local PFX certificate or configure Azure Key Vault in the admin portal before creating an envelope from this template.</p>
+                            @if (User.IsInRole(SignFabric.Application.Identity.AppRoles.Admin)) {
+                                <a href="/admin" class="btn btn-warning mt-3"><strong>Open Admin Portal</strong></a>
+                            }
+                        </div>
+                    }
+
+                    <form method="post">
+                        <div class="box-frame">
+                            <div class="mb-3">
+                                <label for="envelopeName" class="form-label">Envelope Name</label>
+                                <input type="text" required class="form-control" id="envelopeName" name="envelopeName" 
+                                       placeholder="e.g., Q4 Contract Review" aria-describedby="nameHelp" disabled="@(!Model.CanRequestSignatures)">
+                                <div id="nameHelp" class="form-text">A descriptive name for this envelope.</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="recipientEmails" class="form-label">Recipients (Optional)</label>
+                                <textarea class="form-control" id="recipientEmails" name="recipientEmails" 
+                                          rows="4" placeholder="Enter emails separated by comma, semicolon, or line break"
+                                          aria-describedby="emailHelp" disabled="@(!Model.CanRequestSignatures)"></textarea>
+                                <div id="emailHelp" class="form-text">You can add recipients now or add them later.</div>
+                            </div>
+
+                            <button type="submit" class="btn btn-success" disabled="@(!Model.CanRequestSignatures)"><strong>Create Envelope</strong></button>
+                            <a href="/templates" class="btn btn-light"><strong>Cancel</strong></a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</section>

@@ -1,0 +1,47 @@
+@page "/templates"
+@model SignFabric.Pages.Templates.IndexModel
+
+@{
+    ViewData["Title"] = "Template Overview";
+}
+
+<section id="home" class="container section">
+
+    <a href="/templates/create" class="btn btn-warning mb-3"><strong>New Template</strong></a>
+
+    <h1>Templates</h1>
+
+    <div class="row">
+        <div class="col-12">
+            <div>
+                <table class="table table-hover mt-5" data-esign-table="overview" data-page-size="10">
+                    <thead>
+                        <tr>
+                            <th class="align-middle" scope="col">Subject</th>
+                            <th class="align-middle" scope="col">Created</th>
+                            <th class="align-middle" scope="col" data-sortable="false"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var template in @Model.Templates) {
+                            <tr>
+                                <th class="align-middle" scope="row">
+                                    <a href="/templates/details/@template.TemplateID">@template.Name</a>
+                                </th>
+                                
+                                <td class="align-middle">@template.Created</td>
+                                <td class="align-middle">
+                                    <div class="btn-group">
+                                        <a href="/templates/details/@template.TemplateID" class="btn btn-primary">Summary</a>
+
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</section>

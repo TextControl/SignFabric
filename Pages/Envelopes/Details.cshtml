@@ -1,0 +1,251 @@
+@page "/envelopes/details/{id}"
+@model SignFabric.Pages.Envelopes.DetailsModel
+
+@{
+    ViewData["Title"] = "Envelope Summary";
+
+    byte[] octets = System.Text.Encoding.ASCII.GetBytes(Model.Envelope.EnvelopeID + ":" + Model.Envelope.UserID);
+    var envelope_code = Convert.ToBase64String(octets);
+    var host = HttpContext.Request.Scheme + "://" + HttpContext.Request.Host;
+}
+
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 5">
+    <div id="liveToast" class="toast hide text-white bg-success" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <i class="bi bi-clipboard-check" aria-hidden="true"></i>&nbsp;
+            <strong class="me-auto">Text Control eSign</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div id="liveToastMessage" class="toast-body">
+
+        </div>
+    </div>
+</div>
+
+<div id="editor"></div>
+
+<section id="home" class="container section">
+
+    <div class="row">
+        <div class="col-md-10">
+            <a asp-page="/Envelopes/Index" class="btn btn-warning mb-3"><strong>Back</strong></a>
+        </div>
+    </div>
+
+    <div class="row">
+
+        <div class="col-md-2 d-none d-lg-block">
+            <img class="img-thumbnail" src="data:image/svg+xml;base64,@Model.ThumbnailSvg" />
+        </div>
+
+        <div class="col-md-10">
+
+            <h2>Envelope: <strong>@Model.Envelope.Name</strong></h2>
+
+            <p>
+                Envelope ID: <strong>@Model.Envelope.EnvelopeID</strong><br />
+                From: <strong>@Model.Envelope.Sender</strong>
+            </p>
+
+            <p>
+                Status: <strong>@Model.Envelope.Status</strong> @if (Model.Envelope.Status == EnvelopeStatus.Signed) {
+                    <i style="vertical-align: bottom" class="bi bi-check-lg text-success" aria-hidden="true"></i>
+                } else if (Model.Envelope.Status == EnvelopeStatus.Faulted) {
+                    <i style="vertical-align: bottom" class="bi bi-exclamation-triangle text-danger" aria-hidden="true"></i>
+                }
+            </p>
+
+            @if (Model.Envelope.Status == EnvelopeStatus.Faulted) {
+                <div class="alert alert-danger" role="alert">
+                    <strong>The final signed PDF could not be created.</strong>
+                    <p class="mb-0 mt-2">
+                        @(string.IsNullOrWhiteSpace(Model.Envelope.FaultMessage)
+                            ? "Please review the signing certificate and signature fields, then try again."
+                            : Model.Envelope.FaultMessage)
+                    </p>
+                </div>
+            }
+
+            @if (Model.Envelope.Status == EnvelopeStatus.Incomplete || Model.Envelope.Status == EnvelopeStatus.New) {
+                <a asp-page="/Envelopes/Create" asp-route-id="@Model.Envelope.EnvelopeID" class="btn btn-success"><strong>Continue Preparing Process</strong></a>
+            }
+
+            @if (Model.Envelope.Status == EnvelopeStatus.Signed) {
+                <a target="_blank" asp-page="/Envelopes/Details" asp-page-handler="Download" asp-route-id="@Model.Envelope.EnvelopeID" class="btn btn-success"><strong>Download Signed PDF</strong></a>
+
+                <a asp-page="/Envelopes/Create" asp-route-id="@Model.Envelope.EnvelopeID" class="btn btn-success">Resend</a>
+            }
+        </div>
+
+    </div>
+
+    @if (Model.Envelope.Status == EnvelopeStatus.Sent || Model.Envelope.Status == EnvelopeStatus.Signed || Model.Envelope.Status == EnvelopeStatus.Faulted) {
+
+        <div class="row">
+            <div class="col-md-8">
+
+                <h2 class="mb-3 mt-5">Envelope Signing Status <i class="bi bi-pencil-square text-alignment text-success" aria-hidden="true"></i></h2>
+
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Signer</th>
+                            <th scope="col">E-Mail</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Signature</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (Signer signer in Model.Envelope.Signers) {
+                            <tr>
+                                <td>@signer.Name</td>
+                                <td>@signer.Email</td>
+                                <td class="@GetSignerStatusTableClass(signer.SignerStatus)">
+                                    <span class="badge rounded-pill @GetSignerStatusBadgeClass(signer.SignerStatus)">@signer.SignerStatus</span>
+
+                                    @{
+                                        var statusChanged = signer.StatusChanged?
+                                            .LastOrDefault(item => item.SignerStatus == signer.SignerStatus);
+                                    }
+
+                                    @if (statusChanged != null) {
+                                        <p>
+                                            <small>@statusChanged.TimeStamp</small>
+                                        </p>
+                                    }
+                                </td>
+                                <td>
+                                    @if (signer.SignerStatus == SignerStatus.Signed && signer.SignatureInformation != null) {
+                                        <img style="max-height: 40px" src="data:image/svg+xml;base64,@Model.GetSignatureImage(signer.Id)" />
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    @if (Model.Envelope.Status == EnvelopeStatus.Signed) {
+        <div class="row mt-5">
+            <div class="col-md-8">
+                <h2 class="mb-4">Document Audit Trail <i class="bi bi-shield-check text-success" aria-hidden="true"></i></h2>
+
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-clipboard-check-fill text-alignment" aria-hidden="true"></i> Envelope Information
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title">Created</h5>
+                        <p class="card-text">
+                            By: @Model.Envelope.Sender<br />
+                            Date: @Model.Envelope.Created
+                        </p>
+                    </div>
+                </div>
+
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <i class="bi bi-send-fill text-alignment" aria-hidden="true"></i> Envelope Distribution
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title">Sent</h5>
+                        <p class="card-text">@Model.Envelope.Sent</p>
+                        <h5 class="card-title">Recipients</h5>
+
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Signer Name</th>
+                                    <th scope="col">E-Mail</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (Signer signer in Model.Envelope.Signers) {
+                                    <tr class="@(signer.SignerStatus == SignerStatus.Signed ? "table-success" : "table-primary")">
+                                        <td>@signer.Name</td>
+                                        <td>@signer.Email</td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="2">
+                                            <table class="table">
+                                                <thead>
+                                                    <tr>
+                                                        <th scope="col">Status</th>
+                                                        <th scope="col">Time Stamp</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach (StatusChanged statusChanged in signer.StatusChanged) {
+                                                        <tr>
+                                                            <td>@statusChanged.SignerStatus</td>
+                                                            <td>@statusChanged.TimeStamp</td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <i class="bi bi-pen-fill text-alignment" aria-hidden="true"></i> Signature
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title">Fully Signed</h5>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Signer</th>
+                                    <th scope="col">E-Mail</th>
+                                    <th scope="col">IP Address</th>
+                                    <th scope="col">Time of Signature</th>
+                                    <th scope="col">Number of Pages</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (Signer signer in Model.Envelope.Signers.Where(signer => signer.SignatureInformation != null)) {
+                                    <tr>
+                                        <td>@signer.Name</td>
+                                        <td>@signer.Email</td>
+                                        <td>@signer.SignatureInformation.IPAddress</td>
+                                        <td>@signer.SignatureInformation.TimeStamp</td>
+                                        <td>@signer.SignatureInformation.NumPages</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+</section>
+
+@functions {
+    private static string GetSignerStatusTableClass(SignerStatus status) {
+        return status switch {
+            SignerStatus.Signed => "table-success",
+            SignerStatus.Opened => "table-info",
+            SignerStatus.Received => "table-warning",
+            _ => "table-primary"
+        };
+    }
+
+    private static string GetSignerStatusBadgeClass(SignerStatus status) {
+        return status switch {
+            SignerStatus.Signed => "bg-success",
+            SignerStatus.Opened => "bg-info text-dark",
+            SignerStatus.Received => "bg-warning text-dark",
+            _ => "bg-primary"
+        };
+    }
+}
+

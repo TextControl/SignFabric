@@ -1,0 +1,32 @@
+@page "{code:int?}"
+@model SignFabric.Pages.ErrorModel
+
+@{
+    ViewData["Title"] = "Error";
+}
+
+<section id="home" class="container section">
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+            <div class="box text-center">
+                <div class="display-4 fw-bold">@Model.ResponseStatusCode</div>
+                <h1 class="mt-3">@Model.ErrorMessage</h1>
+                <p class="mt-3">@Model.ErrorDetail</p>
+
+                @if (Model.ShowRequestId) {
+                    <p class="text-muted small mt-4">Request ID: @Model.RequestId</p>
+                }
+
+                <div class="d-flex flex-wrap gap-2 justify-content-center mt-4">
+                    <a href="/" class="btn btn-outline-secondary">Home</a>
+                    @if (User.Identity?.IsAuthenticated == true) {
+                        <a href="/dashboard" class="btn btn-warning"><strong>Dashboard</strong></a>
+                    }
+                    else {
+                        <a href="/Identity/Account/Login" class="btn btn-warning"><strong>Sign In</strong></a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

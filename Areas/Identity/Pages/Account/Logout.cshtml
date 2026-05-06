@@ -1,0 +1,17 @@
+@page
+@model LogoutModel
+@{
+    ViewData["Title"] = "Log out";
+}
+
+<meta http-equiv="refresh" content="2; url=@Model.RedirectUrl">
+
+<section id="home" class="container section">
+
+    <header>
+        <h1>@ViewData["Title"]</h1>
+        <p>You have successfully signed out.</p>
+        <p><a href="@Model.RedirectUrl">Continue</a></p>
+    </header>
+
+</section>

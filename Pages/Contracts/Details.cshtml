@@ -1,0 +1,140 @@
+@page "/contracts/details/{id}"
+@model SignFabric.Pages.Contracts.DetailsModel
+
+@{
+   ViewData["Title"] = "Contract Summary";
+
+   byte[] octets = System.Text.Encoding.ASCII.GetBytes(Model.Contract.ContractID + ":" + Model.Contract.UserID);
+   var envelope_code = Convert.ToBase64String(octets);
+   var host = HttpContext.Request.Scheme + "://" + HttpContext.Request.Host;
+}
+
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 5">
+    <div id="liveToast" class="toast hide text-white bg-success" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <i class="bi bi-clipboard-check" aria-hidden="true"></i>&nbsp;
+            <strong class="me-auto">Text Control eSign</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div id="liveToastMessage" class="toast-body">
+
+        </div>
+    </div>
+</div>
+
+<div id="editor"></div>
+
+<section id="home" class="container section">
+
+    <div class="row">
+
+        <div class="col-md-12">
+
+            <a href="/contracts" class="btn btn-warning mb-3"><strong>Back</strong></a>
+
+            <h2>Contract: <strong>@Model.Contract.Name</strong></h2>
+
+            <a href="/contracts/@Model.Contract.ContractID/download" class="btn btn-outline-success mb-3"><strong>Download</strong></a>
+
+            <p>
+                Contract ID: <strong>@Model.Contract.ContractID</strong><br />
+                From: <strong>@Model.Contract.Sender</strong>
+            </p>
+
+            <div class="row">
+
+                <div class="col-md-6 mt-5">
+
+                    @if (Model.Contract.Status == ContractStatus.Sent) {
+
+                        <div class="card">
+                            <h5 class="card-header bg-primary text-white">Status: @Model.Contract.Status</h5>
+                            <div class="card-body">
+                                <h5 class="card-title">The document has been sent to <strong>@Model.Contract.Signer.Name</strong>.</h5>
+                                <p class="card-text">You will be notified in case changes are proposed or the document got accepted.</p>
+                            </div>
+                        </div>
+
+                    }
+
+                    @if (Model.Contract.Status == ContractStatus.Changed) {
+
+                        <div class="card">
+                            <h5 class="card-header bg-warning">Status: @Model.Contract.Status</h5>
+                            <div class="card-body">
+                                <h5 class="card-title"><strong>@Model.Contract.Signer.Name</strong> updated the document.</h5>
+                                <p class="card-text">You can review and accept the changes by clicking 'Review'.</p>
+                                <a href="/collaboration/edit/@envelope_code" class="btn btn-warning"><strong>Review</strong></a>
+                            </div>
+                        </div>
+
+                    }
+
+                    @if (Model.Contract.Status == ContractStatus.Accepted) {
+
+                        <div class="card">
+                            <h5 class="card-header bg-success text-white">Status: @Model.Contract.Status</h5>
+                            <div class="card-body">
+                                <h5 class="card-title"><strong>@Model.Contract.Signer.Name</strong> accepted the document.</h5>
+                                <p class="card-text">You can convert the contract into a signature process.</p>
+                                @if (Model.CanRequestSignatures) {
+                                    <a asp-page="/Envelopes/Create" asp-route-contractId="@envelope_code" class="btn btn-warning"><strong>Request Signature</strong></a>
+                                }
+                                else {
+                                    <div class="alert alert-warning certificate-required-alert" role="alert">
+                                        <strong>A signing certificate is required to request signatures.</strong>
+                                        <p class="mb-0 mt-2">Upload and activate a local PFX certificate or configure Azure Key Vault in the admin portal before converting this contract.</p>
+                                        @if (User.IsInRole(SignFabric.Application.Identity.AppRoles.Admin)) {
+                                            <a href="/admin" class="btn btn-warning mt-3"><strong>Open Admin Portal</strong></a>
+                                        }
+                                    </div>
+                                    <button type="button" class="btn btn-outline-secondary" disabled>Request Signature</button>
+                                }
+                            </div>
+                        </div>
+
+                    }
+
+                </div>
+
+            </div>
+
+            </div>
+            </div>
+
+            <div class="row mt-5">
+
+                <div class="col-md-3 d-none d-md-block box box-row">
+                    <p>
+                        Document name<br />
+                        <strong>@Model.Contract.Name</strong>
+                    </p>
+                    <p>
+                        <img class="img-fluid thumbnail-image" src="data:image/svg+xml;base64,@Model.ThumbnailSvg" />
+                    </p>
+                    <p>
+                        Created<br />
+                        <strong>@Model.Contract.Created</strong>
+                    </p>
+                </div>
+
+                <div class="col-md-8">
+                    <h2 class="mb-5">Contract Details</h2>
+
+                    <p>
+                        User Link:<br />
+                        <input class="copy-link" id="signatureLink" type="text" readonly value="@host/collaboration/edit/@envelope_code" /> <a href="#" data-esign-action="copy-link" data-target="signatureLink"><i class="bi bi-copy text-success text-alignment" aria-hidden="true"></i></a>
+                    </p>
+
+                    <p>
+                        Document Access ID:<br />
+                        <input class="copy-link" id="accessCode" type="text" readonly value="@envelope_code" /> <a href="#" data-esign-action="copy-link" data-target="accessCode"><i class="bi bi-copy text-success text-alignment" aria-hidden="true"></i></a>
+                    </p>
+
+                </div>
+
+            </div>
+
+
+
+</section>

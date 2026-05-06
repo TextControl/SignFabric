@@ -1,0 +1,25 @@
+﻿[
+  {
+    "outputFileName": "wwwroot/css/site.min.css",
+    "inputFiles": [
+      "wwwroot/css/site.css"
+    ],
+    "minify": {
+      "enabled": false
+    }
+  },
+  {
+    "outputFileName": "wwwroot/js/site.min.js",
+    "inputFiles": [
+      "wwwroot/js/esign/esign-query.js",
+      "wwwroot/js/esign/esign-core.js",
+      "wwwroot/js/esign/esign-bindings.js",
+      "wwwroot/js/esign/esign-page-init.js"
+    ],
+    "minify": {
+      "enabled": false,
+      "renameLocals": false
+    },
+    "sourceMap": false
+  }
+]

@@ -1,0 +1,148 @@
+@page "/contracts/create"
+@model SignFabric.Pages.Contracts.CreateModel
+
+@{
+    ViewData["Title"] = "Prepare the Contract";
+}
+
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 5">
+    <div id="liveToast" class="toast hide text-white bg-success" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <i class="bi bi-clipboard-check" aria-hidden="true"></i>&nbsp;
+            <strong class="me-auto">Text Control eSign</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div id="liveToastMessage" class="toast-body">
+
+        </div>
+    </div>
+</div>
+
+<div id="editor"></div>
+
+<section id="home" class="container section signature-flow-section">
+
+        <div class="signature-flow-card" id="processSteps">
+            <div class="signature-flow-heading">
+                <h1>Prepare contract to request collaboration</h1>
+                <p>Create a document collaboration request and send it to a recipient.</p>
+            </div>
+
+            <div class="row mt-5">
+                <div class="col-md-1 offset-1 status-border status-border-checked">
+                    <span class="status status-check"><i class="bi bi-send-fill" aria-hidden="true"></i></span>
+                </div>
+                <div class="col-md-8 offset-md-1 status-content">
+                    <p>
+                        <strong>Sender</strong>
+                        <br />
+                        @User.Identity.Name
+                    </p>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-1 offset-1 status-border">
+                    <span id="statusDocument" class="status status-active"><i class="bi bi-file-earmark-text" aria-hidden="true"></i></span>
+                </div>
+                <div class="col-md-8 offset-md-1 status-content">
+                    <p>
+                        <strong>Contract document</strong>
+                        <br />
+                        Please upload the contract document.
+                    </p>
+                    <div id="collapseContract">
+                        <div id="contractUploadBox">
+                            <div class="box-frame">
+                                <div class="mb-3">
+                                    <input data-esign-action="add-contract" accept="@Model.AcceptedFileTypes" id="files" name="files" type="file" class="form-control file">
+                                </div>
+                            </div>
+
+                            <div class="mt-3 waitstate">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="contractPreviewBox">
+                            <img class="img-fluid thumbnail-image thumbnail-small" src="" id="statusDocumentThumbnail" />
+                            <p class="mt-3" id="statusDocumentInfo"></p>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-1 offset-1 status-border">
+                    <span id="statusRecipient" class="status"><i class="bi bi-person-lines-fill" aria-hidden="true"></i></span>
+                </div>
+                <div class="col-md-8 offset-md-1 status-content">
+                    <p>
+                        <strong>Recipient</strong>
+                        <br />
+                        Please enter the name and the e-mail address of the signer.
+                    </p>
+                    <div class="collapse" id="collapseRecipient">
+                        <form autocomplete="on" id="processForm" class="needs-validation">
+                            <div class="box-frame">
+                                <div class="mb-3">
+                                    <label for="signerName" class="form-label">Name</label>
+                                    <input type="text" required placeholder="Recipient's name" class="form-control" id="signerName" aria-describedby="NameHelp">
+                                    <div id="NameHelp" class="form-text">The name of the recipient.</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="signerEmail" class="form-label">E-mail address</label>
+                                    <input type="email" required placeholder="signer@company.com" class="form-control" id="signerEmail" aria-describedby="emailHelp">
+                                    <div id="emailHelp" class="form-text">We'll never share the e-mail with anyone else.</div>
+                                </div>
+                            </div>
+                        </form>
+
+                        <button data-esign-action="submit-recipient" data-type="contract" class="btn btn-warning mt-3 mb-3"><strong>Next</strong></button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-1 offset-1 status-border-last">
+                    <span id="statusReview" class="status"><i class="bi bi-clipboard-check-fill" aria-hidden="true"></i></span>
+                </div>
+                <div class="col-md-8 offset-md-1 status-content">
+                    <p>
+                        <strong>Review and send</strong>
+                        <br />
+                        Please review the details and send it to the recipient.
+                    </p>
+                    <div class="collapse" id="collapseReview">
+
+                        <p>Sender: <strong>@User.Identity.Name</strong></p>
+                        <p>Recipient: <strong id="reviewRecipient"></strong></p>
+
+                        <div id="submitButtons">
+                            <button data-esign-action="next-step" data-target="collapseRecipient" class="btn btn-light mt-3 mb-3"><strong>Back</strong></button>
+                            <button data-esign-action="submit-contract" class="btn btn-warning mt-3 mb-3"><strong>Send</strong></button>
+                        </div>
+
+                        <div class="waitstate">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+
+                        <div id="readyButton" class="visually-hidden">
+                            <p>The envelope has been sent successfully.</p>
+                            <a href="/contracts" class="btn btn-warning mt-3 mb-3"><strong>Overview</strong></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+</section>
+
+

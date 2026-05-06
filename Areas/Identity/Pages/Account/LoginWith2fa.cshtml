@@ -1,0 +1,202 @@
+@page
+@model LoginWith2faModel
+
+@{
+    ViewData["Title"] = "Two-factor authentication";
+}
+
+<section id="home" class="container section two-factor-section">
+    <div class="two-factor-card">
+        <div class="two-factor-icon" aria-hidden="true">
+            <i class="bi bi-lock"></i>
+        </div>
+        <h1>@ViewData["Title"]</h1>
+        <p>Enter the 6-digit code sent to your e-mail address.</p>
+
+        <form method="post" id="twoFactorForm" data-validate-url="@Url.Page(null, "ValidateCode")">
+            <div asp-validation-summary="All" class="text-danger"></div>
+            <input asp-for="ReturnUrl" type="hidden" />
+            <input asp-for="RememberMe" type="hidden" />
+            <input asp-for="Input.Code" type="hidden" />
+            <label asp-for="Input.Code" class="visually-hidden"></label>
+            <div class="two-factor-code" role="group" aria-label="Verification code">
+                @for (var index = 0; index < 6; index++) {
+                    <input class="two-factor-code-input"
+                           type="text"
+                           inputmode="numeric"
+                           pattern="[0-9]*"
+                           maxlength="1"
+                           autocomplete="@(index == 0 ? "one-time-code" : "off")"
+                           aria-label="Digit @(index + 1)" />
+                }
+            </div>
+            <span asp-validation-for="Input.Code" class="text-danger"></span>
+            <div id="twoFactorFeedback" class="two-factor-feedback" role="status" aria-live="polite">6 digits left</div>
+        </form>
+    </div>
+
+    @section Scripts {
+        <partial name="_ValidationScriptsPartial" />
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                var form = document.getElementById("twoFactorForm");
+                if (!form) {
+                    return;
+                }
+
+                var inputs = Array.prototype.slice.call(form.querySelectorAll(".two-factor-code-input"));
+                var codeInput = form.querySelector("input[name='Input.Code']");
+                var feedback = document.getElementById("twoFactorFeedback");
+                var validateUrl = form.getAttribute("data-validate-url");
+                var pendingCode = "";
+                var isSubmitting = false;
+
+                function setState(state, message) {
+                    form.classList.remove("two-factor-valid", "two-factor-invalid", "two-factor-pending");
+
+                    if (state) {
+                        form.classList.add("two-factor-" + state);
+                    }
+
+                    updateFeedback(message);
+                }
+
+                function updateFeedback(message) {
+                    if (!feedback) {
+                        return;
+                    }
+
+                    if (message) {
+                        feedback.textContent = message;
+                        return;
+                    }
+
+                    var remaining = inputs.length - getCode().length;
+                    feedback.textContent = remaining === 0
+                        ? "Checking code..."
+                        : remaining + " " + (remaining === 1 ? "digit" : "digits") + " left";
+                }
+
+                function getCode() {
+                    return inputs.map(function (input) { return input.value; }).join("");
+                }
+
+                function syncCode() {
+                    var code = getCode();
+                    codeInput.value = code;
+                    return code;
+                }
+
+                function fillFromText(text, startIndex) {
+                    var digits = (text || "").replace(/\D/g, "").slice(0, inputs.length - startIndex);
+
+                    digits.split("").forEach(function (digit, offset) {
+                        inputs[startIndex + offset].value = digit;
+                    });
+
+                    var nextIndex = Math.min(startIndex + digits.length, inputs.length - 1);
+                    inputs[nextIndex].focus();
+                    validateWhenComplete();
+                }
+
+                function validateWhenComplete() {
+                    var code = syncCode();
+
+                    if (code.length < inputs.length) {
+                        pendingCode = "";
+                        setState(null);
+                        return;
+                    }
+
+                    if (isSubmitting || pendingCode === code) {
+                        return;
+                    }
+
+                    pendingCode = code;
+                    isSubmitting = true;
+                    setState("pending", "Checking code...");
+
+                    var token = form.querySelector("input[name='__RequestVerificationToken']");
+                    var body = new URLSearchParams();
+                    body.append("Input.Code", code);
+                    body.append("ReturnUrl", form.querySelector("input[name='ReturnUrl']").value || "");
+                    body.append("RememberMe", form.querySelector("input[name='RememberMe']").value || "false");
+
+                    if (token) {
+                        body.append("__RequestVerificationToken", token.value);
+                    }
+
+                    fetch(validateUrl, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                            "X-Requested-With": "XMLHttpRequest"
+                        },
+                        body: body.toString()
+                    })
+                        .then(function (response) {
+                            return response.json();
+                        })
+                        .then(function (result) {
+                            isSubmitting = false;
+
+                            if (result.success) {
+                                setState("valid", "Code accepted.");
+                                window.setTimeout(function () {
+                                    window.location.href = result.redirectUrl;
+                                }, 220);
+                                return;
+                            }
+
+                            pendingCode = "";
+                            setState("invalid", result.error || "Invalid verification code.");
+                            inputs.forEach(function (input) { input.value = ""; });
+                            syncCode();
+                            inputs[0].focus();
+                        })
+                        .catch(function () {
+                            isSubmitting = false;
+                            pendingCode = "";
+                            setState("invalid", "The code could not be checked. Please try again.");
+                        });
+                }
+
+                inputs.forEach(function (input, index) {
+                    input.addEventListener("input", function () {
+                        var digits = input.value.replace(/\D/g, "");
+
+                        if (digits.length > 1) {
+                            input.value = "";
+                            fillFromText(digits, index);
+                            return;
+                        }
+
+                        input.value = digits;
+
+                        if (digits && index < inputs.length - 1) {
+                            inputs[index + 1].focus();
+                        }
+
+                        validateWhenComplete();
+                    });
+
+                    input.addEventListener("keydown", function (event) {
+                        if (event.key === "Backspace" && !input.value && index > 0) {
+                            inputs[index - 1].focus();
+                            inputs[index - 1].value = "";
+                            syncCode();
+                            setState(null);
+                        }
+                    });
+
+                    input.addEventListener("paste", function (event) {
+                        event.preventDefault();
+                        fillFromText(event.clipboardData.getData("text"), index);
+                    });
+                });
+
+                inputs[0].focus();
+            });
+        </script>
+    }
+</section>
