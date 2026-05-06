@@ -16,12 +16,15 @@ built with TX Text Control technologies.
 Subject to the terms of this license and a valid license for the
 required TX Text Control products, you are permitted to:
 
-- use this software internally
+- use this software internally or commercially
 - modify and customize the source code
 - create derivative works
-- integrate the software into internal business systems
-- deploy modified versions within your organization
-- redistribute modified versions of this software
+- integrate the software into internal or customer-facing systems
+- deploy modified versions within your organization or for customers
+- redistribute modified versions of this software together with
+  licensed TX Text Control products
+- commercially sell solutions and services built on top of this
+  software when used together with licensed TX Text Control products
 
 Users are not required to publicly disclose modifications made to
 this software.
@@ -70,11 +73,14 @@ It is NOT permitted to:
 - replace TX Text Control with alternative document processing,
   document editing, document rendering, or e-signature technologies
 - use this software independently of TX Text Control products
-- create competing standalone products based on this software
-  without TX Text Control technologies
+- offer this software as a standalone SaaS or hosted service for
+  electronic signatures without TX Text Control technologies
+- create competing standalone e-signature products or services
+  based on this software without TX Text Control technologies
 
-Any deployment or productive use of this software requires valid
-licenses for the required TX Text Control components.
+Commercial usage, redistribution, and deployment are only permitted
+when the solution continues to use properly licensed TX Text Control
+components as a core part of the platform.
 
 ---------------------------------------------------------------------
 
