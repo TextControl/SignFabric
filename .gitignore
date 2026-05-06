@@ -39,3 +39,4 @@ ScaffoldingReadMe.txt
 # Build Bundler Minifier output
 *.min.css
 *.min.js
+/Data/IdentityLiteDB.db
