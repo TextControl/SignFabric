@@ -243,7 +243,7 @@ namespace SignFabric.Infrastructure.Services.TextControl {
 			DeleteFormFields(tx);
 
 			try {
-				tx.Save(out data, TXTextControl.BinaryStreamType.AdobePDFA, saveSettings);
+				tx.Save(out data, TXTextControl.BinaryStreamType.AdobePDF, saveSettings);
 			} catch (Exception ex) {
 				throw new InvalidOperationException(
 					"The final signed PDF could not be created. Please check the signing certificate and signature fields, then try again.",
