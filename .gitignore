@@ -40,3 +40,5 @@ ScaffoldingReadMe.txt
 *.min.css
 *.min.js
 /Data/IdentityLiteDB.db
+/appsettings.Production.json
+/Properties/PublishProfiles/Default Settings.pubxml
