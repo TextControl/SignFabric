@@ -1,20 +1,6 @@
-Apache License
-Version 2.0, January 2004
-http://www.apache.org/licenses/
-
+SignFabric Source Available License
+Version 1.0
 Copyright 2026 Text Control GmbH and Text Control, LLC
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
 
 ---------------------------------------------------------------------
 
@@ -23,50 +9,114 @@ SignFabric
 Enterprise-ready electronic signature platform sample application
 built with TX Text Control technologies.
 
-Additional Terms and Notices
-----------------------------
+---------------------------------------------------------------------
 
-1. TX Text Control Dependencies
+1. Grant of Rights
 
-This project depends on commercial TX Text Control components
-and related proprietary software libraries.
+Subject to the terms of this license and a valid license for the
+required TX Text Control products, you are permitted to:
+
+- use this software internally or commercially
+- modify and customize the source code
+- create derivative works
+- integrate the software into internal or customer-facing systems
+- deploy modified versions within your organization or for customers
+- redistribute modified versions of this software together with
+  licensed TX Text Control products
+- commercially sell solutions and services built on top of this
+  software when used together with licensed TX Text Control products
+
+Users are not required to publicly disclose modifications made to
+this software.
+
+---------------------------------------------------------------------
+
+2. TX Text Control Dependency
+
+This software depends on commercial TX Text Control products and
+related proprietary software libraries.
 
 A valid license for the required TX Text Control products is required
-to build, run, or deploy this application in production environments.
+to build, run, deploy, or use this software in production
+environments.
 
 TX Text Control binaries, license keys, trial keys, and proprietary
-assets are NOT covered by the Apache License 2.0.
+assets are NOT included under this license.
 
 For licensing information, visit:
 
 https://www.textcontrol.com/
 
-2. Permitted Customization
+---------------------------------------------------------------------
 
-Licensed users of TX Text Control are explicitly permitted to:
+3. Permitted Customization
 
-- modify this application
-- customize the source code
-- integrate the application into internal systems
-- create proprietary extensions
-- redistribute modified versions in accordance with the Apache License 2.0
+Licensed users may customize this software for their own business
+requirements, including:
 
-Users are NOT required to publicly disclose modifications made to
-this application.
+- UI modifications
+- workflow customization
+- integration into existing systems
+- white-label deployments
+- proprietary internal extensions
 
-3. Trademark Notice
+---------------------------------------------------------------------
 
-"Text Control", "TX Text Control", and related logos ("SignFabric") are trademarks
-or registered trademarks of Text Control GmbH and/or Text Control, LLC.
+4. Platform Dependency Restriction
+
+This software is designed exclusively for use with licensed
+TX Text Control products.
+
+It is NOT permitted to:
+
+- remove TX Text Control as a core component of the platform
+- replace TX Text Control with alternative document processing,
+  document editing, document rendering, or e-signature technologies
+- use this software independently of TX Text Control products
+- offer this software as a standalone SaaS or hosted service for
+  electronic signatures without TX Text Control technologies
+- create competing standalone e-signature products or services
+  based on this software without TX Text Control technologies
+
+Commercial usage, redistribution, and deployment are only permitted
+when the solution continues to use properly licensed TX Text Control
+components as a core part of the platform.
+
+---------------------------------------------------------------------
+
+5. Trademark Notice
+
+"Text Control", "TX Text Control", "SignFabric", and related logos
+are trademarks or registered trademarks of Text Control GmbH and/or
+Text Control, LLC.
 
 This license does not grant permission to use Text Control branding,
 logos, or trademarks in a way that suggests official endorsement.
 
-4. No Warranty
+---------------------------------------------------------------------
+
+6. No Warranty
 
 This software is provided as a sample/reference implementation only.
-It is provided "AS IS", without warranty of any kind.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND
+NONINFRINGEMENT.
+
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR
+ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 
 ---------------------------------------------------------------------
 
-SPDX-License-Identifier: Apache-2.0
+7. Termination
+
+Any violation of the terms of this license automatically terminates
+the rights granted under this license.
+
+---------------------------------------------------------------------
+
+SPDX-License-Identifier: LicenseRef-SignFabric-SAL-1.0
