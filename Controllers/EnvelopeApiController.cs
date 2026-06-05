@@ -1,5 +1,6 @@
 using SignFabric.Application.Services;
 using SignFabric.Application.Abstractions;
+using SignFabric.Application.Identity;
 using SignFabric.Application.ContractManagement;
 using SignFabric.Application.Envelopes;
 using SignFabric.Application.Signing;
@@ -17,13 +18,14 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace SignFabric.Controllers {
-	[Authorize]
+	[Authorize(Roles = AppRoles.EnvelopeCreators)]
 	[ApiController]
 	[Route("api/[controller]")]
 	public class EnvelopeController : ControllerBase {
 		private readonly IEnvelopeWorkflowService _workflowService;
 		private readonly IEditableDocumentService _editableDocumentService;
 		private readonly IUploadPolicy _uploadPolicy;
+		private readonly ICertificateManagementService _certificateManagementService;
 		private readonly UserManager<LiteDB.Identity.Models.LiteDbUser> _userManager;
 		private readonly string _userId;
 
@@ -31,11 +33,13 @@ namespace SignFabric.Controllers {
 			IEnvelopeWorkflowService workflowService,
 			IEditableDocumentService editableDocumentService,
 			IUploadPolicy uploadPolicy,
+			ICertificateManagementService certificateManagementService,
 			ICurrentUserContext currentUserContext,
 			UserManager<LiteDB.Identity.Models.LiteDbUser> userManager) {
 			_workflowService = workflowService ?? throw new ArgumentNullException(nameof(workflowService));
 			_editableDocumentService = editableDocumentService ?? throw new ArgumentNullException(nameof(editableDocumentService));
 			_uploadPolicy = uploadPolicy ?? throw new ArgumentNullException(nameof(uploadPolicy));
+			_certificateManagementService = certificateManagementService ?? throw new ArgumentNullException(nameof(certificateManagementService));
 			_userManager = userManager;
 			_userId = currentUserContext.UserId;
 		}
@@ -107,8 +111,34 @@ namespace SignFabric.Controllers {
 			}
 		}
 
+		[HttpPost("signing-certificate/{id}")]
+		[HttpPost("/envelope/signing-certificate/{id}")]
+		public async Task<IActionResult> UpdateSigningCertificate([FromBody] UpdateSigningCertificateRequest request, string id) {
+			try {
+				if (request == null || string.IsNullOrWhiteSpace(request.SigningCertificateId)) {
+					return BadRequest(new { error = "Select a signing certificate.", success = false });
+				}
+
+				if (!_certificateManagementService.IsLocalCertificateAvailable(request.SigningCertificateId)) {
+					return BadRequest(new { error = "The selected signing certificate is not available.", success = false });
+				}
+
+				var envelope = await _workflowService.GetRecipientsAsync(_userId, id);
+				if (envelope.Status == EnvelopeStatus.Sent || envelope.Status == EnvelopeStatus.Signed || envelope.Status == EnvelopeStatus.Closed) {
+					return BadRequest(new { error = "The signing certificate cannot be changed after the envelope has been sent.", success = false });
+				}
+
+				envelope.SigningCertificateId = request.SigningCertificateId.Trim();
+				await _workflowService.UpdateAsync(_userId, envelope);
+
+				return Ok(new { success = true, envelope = envelope, message = "Signing certificate updated" });
+			} catch (Exception ex) {
+				return BadRequest(new { error = ex.Message, success = false });
+			}
+		}
+
 		[HttpPost("/envelope/new")]
-		public async Task<IActionResult> New() {
+		public async Task<IActionResult> New([FromForm] string signingCertificateId) {
 			try {
 				string envelopeId = "";
 
@@ -123,7 +153,8 @@ namespace SignFabric.Controllers {
 							_userId,
 							_userManager.GetUserName(User),
 							ms,
-							file.FileName);
+							file.FileName,
+							signingCertificateId);
 					}
 				}
 
@@ -133,5 +164,9 @@ namespace SignFabric.Controllers {
 			}
 		}
 
+	}
+
+	public class UpdateSigningCertificateRequest {
+		public string SigningCertificateId { get; set; }
 	}
 }

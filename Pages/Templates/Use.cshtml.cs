@@ -12,12 +12,13 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace SignFabric.Pages.Templates {
-	[Authorize]
+	[Authorize(Roles = SignFabric.Application.Identity.AppRoles.EnvelopeCreators)]
 	public class UseModel : PageModel {
 		private readonly IDocumentMergeService _mergeService;
 		private readonly ITemplateService _templateService;
@@ -32,9 +33,14 @@ namespace SignFabric.Pages.Templates {
 		[BindProperty]
 		public string RecipientEmails { get; set; }
 
+		[BindProperty]
+		public string SigningCertificateId { get; set; }
+
 		public Template Template { get; set; }
 		public string ErrorMessage { get; set; }
 		public bool CanRequestSignatures { get; set; }
+		public IReadOnlyList<SigningCertificateSummary> Certificates { get; set; } = new List<SigningCertificateSummary>();
+		public string DefaultCertificateId { get; set; }
 
 		public UseModel(
 			IDocumentMergeService mergeService,
@@ -62,7 +68,7 @@ namespace SignFabric.Pages.Templates {
 					return NotFound();
 				}
 
-				CanRequestSignatures = _certificateManagementService.HasActiveSigningCertificate();
+				await LoadCertificateStateAsync();
 
 				return Page();
 			} catch (Exception ex) {
@@ -82,7 +88,7 @@ namespace SignFabric.Pages.Templates {
 					return NotFound();
 				}
 
-				CanRequestSignatures = _certificateManagementService.HasActiveSigningCertificate();
+				await LoadCertificateStateAsync();
 				if (!CanRequestSignatures) {
 					ErrorMessage = "A signing certificate is required to request signatures. Upload and activate a local PFX certificate or configure Azure Key Vault in the admin portal.";
 					return Page();
@@ -100,6 +106,7 @@ namespace SignFabric.Pages.Templates {
 					UserID = _userId,
 					Sender = _userName,
 					Created = DateTime.Now,
+					SigningCertificateId = string.IsNullOrWhiteSpace(SigningCertificateId) ? DefaultCertificateId : SigningCertificateId.Trim(),
 					Status = EnvelopeStatus.New
 				};
 
@@ -122,6 +129,12 @@ namespace SignFabric.Pages.Templates {
 				ErrorMessage = $"Error creating envelope from template: {ex.Message}";
 				return Page();
 			}
+		}
+
+		private async Task LoadCertificateStateAsync() {
+			CanRequestSignatures = _certificateManagementService.HasActiveSigningCertificate();
+			Certificates = await _certificateManagementService.GetCertificatesAsync();
+			DefaultCertificateId = _certificateManagementService.GetDefaultLocalCertificateId();
 		}
 	}
 }

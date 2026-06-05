@@ -85,6 +85,19 @@
                                 <div id="emailHelp" class="form-text">You can add recipients now or add them later.</div>
                             </div>
 
+                            @if (Model.Certificates.Any()) {
+                                <div class="mb-3">
+                                    <label for="signingCertificateId" class="form-label">Signing Certificate</label>
+                                    <select class="form-select" id="signingCertificateId" name="signingCertificateId" disabled="@(!Model.CanRequestSignatures)">
+                                        @foreach (var certificate in Model.Certificates) {
+                                            <option value="@certificate.Id" selected="@(certificate.Id == Model.DefaultCertificateId)">
+                                                @certificate.DisplayName@(certificate.Id == Model.DefaultCertificateId ? " (Default)" : null)
+                                            </option>
+                                        }
+                                    </select>
+                                </div>
+                            }
+
                             <button type="submit" class="btn btn-success" disabled="@(!Model.CanRequestSignatures)"><strong>Create Envelope</strong></button>
                             <a href="/templates" class="btn btn-light"><strong>Cancel</strong></a>
                         </div>

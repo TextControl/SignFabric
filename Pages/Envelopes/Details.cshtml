@@ -26,34 +26,48 @@
 
 <section id="home" class="container section">
 
-    <div class="row">
-        <div class="col-md-10">
-            <a asp-page="/Envelopes/Index" class="btn btn-warning mb-3"><strong>Back</strong></a>
-        </div>
+    <div class="mb-3">
+        <a asp-page="/Envelopes/Index" class="btn btn-light envelope-summary-back">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>
+            Back
+        </a>
     </div>
 
-    <div class="row">
-
-        <div class="col-md-2 d-none d-lg-block">
-            <img class="img-thumbnail" src="data:image/svg+xml;base64,@Model.ThumbnailSvg" />
+    <div class="envelope-summary-panel">
+        <div class="envelope-summary-preview d-none d-lg-flex">
+            <img class="envelope-summary-thumbnail" src="data:image/svg+xml;base64,@Model.ThumbnailSvg" alt="Document preview" />
         </div>
 
-        <div class="col-md-10">
+        <div class="envelope-summary-content">
+            <div class="envelope-summary-header">
+                <div>
+                    <h1>@Model.Envelope.Name</h1>
+                    <p>Envelope overview</p>
+                </div>
+                <span class="envelope-status-pill envelope-status-@Model.Envelope.Status.ToString().ToLowerInvariant()">
+                    @if (Model.Envelope.Status == EnvelopeStatus.Signed) {
+                        <i class="bi bi-check2-circle" aria-hidden="true"></i>
+                    }
+                    else if (Model.Envelope.Status == EnvelopeStatus.Faulted) {
+                        <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+                    }
+                    else {
+                        <i class="bi bi-clock" aria-hidden="true"></i>
+                    }
+                    @Model.Envelope.Status
+                </span>
+            </div>
 
-            <h2>Envelope: <strong>@Model.Envelope.Name</strong></h2>
-
-            <p>
-                Envelope ID: <strong>@Model.Envelope.EnvelopeID</strong><br />
-                From: <strong>@Model.Envelope.Sender</strong>
-            </p>
-
-            <p>
-                Status: <strong>@Model.Envelope.Status</strong> @if (Model.Envelope.Status == EnvelopeStatus.Signed) {
-                    <i style="vertical-align: bottom" class="bi bi-check-lg text-success" aria-hidden="true"></i>
-                } else if (Model.Envelope.Status == EnvelopeStatus.Faulted) {
-                    <i style="vertical-align: bottom" class="bi bi-exclamation-triangle text-danger" aria-hidden="true"></i>
-                }
-            </p>
+            <dl class="envelope-summary-meta">
+                <div>
+                    <dt>Envelope ID</dt>
+                    <dd>@Model.Envelope.EnvelopeID</dd>
+                </div>
+                <div>
+                    <dt>From</dt>
+                    <dd>@Model.Envelope.Sender</dd>
+                </div>
+            </dl>
 
             @if (Model.Envelope.Status == EnvelopeStatus.Faulted) {
                 <div class="alert alert-danger" role="alert">
@@ -66,17 +80,29 @@
                 </div>
             }
 
-            @if (Model.Envelope.Status == EnvelopeStatus.Incomplete || Model.Envelope.Status == EnvelopeStatus.New) {
-                <a asp-page="/Envelopes/Create" asp-route-id="@Model.Envelope.EnvelopeID" class="btn btn-success"><strong>Continue Preparing Process</strong></a>
-            }
+            <div class="envelope-summary-actions">
+                @if (!Model.IsSignerAccount && (Model.Envelope.Status == EnvelopeStatus.Incomplete || Model.Envelope.Status == EnvelopeStatus.New)) {
+                    <a asp-page="/Envelopes/Create" asp-route-id="@Model.Envelope.EnvelopeID" class="btn btn-success">
+                        <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                        Continue Preparing
+                    </a>
+                }
 
-            @if (Model.Envelope.Status == EnvelopeStatus.Signed) {
-                <a target="_blank" asp-page="/Envelopes/Details" asp-page-handler="Download" asp-route-id="@Model.Envelope.EnvelopeID" class="btn btn-success"><strong>Download Signed PDF</strong></a>
+                @if (Model.Envelope.Status == EnvelopeStatus.Signed) {
+                    <a target="_blank" asp-page="/Envelopes/Details" asp-page-handler="Download" asp-route-id="@Model.Envelope.EnvelopeID" class="btn btn-success">
+                        <i class="bi bi-download" aria-hidden="true"></i>
+                        Download Signed PDF
+                    </a>
 
-                <a asp-page="/Envelopes/Create" asp-route-id="@Model.Envelope.EnvelopeID" class="btn btn-success">Resend</a>
-            }
+                    @if (!Model.IsSignerAccount) {
+                        <a asp-page="/Envelopes/Create" asp-route-id="@Model.Envelope.EnvelopeID" class="btn btn-outline-success">
+                            <i class="bi bi-send" aria-hidden="true"></i>
+                            Resend
+                        </a>
+                    }
+                }
+            </div>
         </div>
-
     </div>
 
     @if (Model.Envelope.Status == EnvelopeStatus.Sent || Model.Envelope.Status == EnvelopeStatus.Signed || Model.Envelope.Status == EnvelopeStatus.Faulted) {
@@ -132,27 +158,27 @@
             <div class="col-md-8">
                 <h2 class="mb-4">Document Audit Trail <i class="bi bi-shield-check text-success" aria-hidden="true"></i></h2>
 
-                <div class="card">
-                    <div class="card-header">
+                <div class="audit-trail-card">
+                    <div class="audit-trail-card-header">
                         <i class="bi bi-clipboard-check-fill text-alignment" aria-hidden="true"></i> Envelope Information
                     </div>
-                    <div class="card-body">
-                        <h5 class="card-title">Created</h5>
-                        <p class="card-text">
+                    <div class="audit-trail-card-body">
+                        <h5 class="audit-trail-card-title">Created</h5>
+                        <p>
                             By: @Model.Envelope.Sender<br />
                             Date: @Model.Envelope.Created
                         </p>
                     </div>
                 </div>
 
-                <div class="card mt-3">
-                    <div class="card-header">
+                <div class="audit-trail-card">
+                    <div class="audit-trail-card-header">
                         <i class="bi bi-send-fill text-alignment" aria-hidden="true"></i> Envelope Distribution
                     </div>
-                    <div class="card-body">
-                        <h5 class="card-title">Sent</h5>
-                        <p class="card-text">@Model.Envelope.Sent</p>
-                        <h5 class="card-title">Recipients</h5>
+                    <div class="audit-trail-card-body">
+                        <h5 class="audit-trail-card-title">Sent</h5>
+                        <p>@Model.Envelope.Sent</p>
+                        <h5 class="audit-trail-card-title">Recipients</h5>
 
                         <table class="table">
                             <thead>
@@ -193,12 +219,12 @@
                     </div>
                 </div>
 
-                <div class="card mt-3">
-                    <div class="card-header">
+                <div class="audit-trail-card">
+                    <div class="audit-trail-card-header">
                         <i class="bi bi-pen-fill text-alignment" aria-hidden="true"></i> Signature
                     </div>
-                    <div class="card-body">
-                        <h5 class="card-title">Fully Signed</h5>
+                    <div class="audit-trail-card-body">
+                        <h5 class="audit-trail-card-title">Fully Signed</h5>
                         <table class="table">
                             <thead>
                                 <tr>

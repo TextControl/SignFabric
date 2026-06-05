@@ -52,7 +52,7 @@ namespace SignFabric.Infrastructure.Services {
 
 		public (byte[] PdfData, string ThumbnailSvg) CreateSignedPdf(Envelope envelope, string masterDocument) {
 			using (var tx = new TextControlHelpers(masterDocument)) {
-				var certificate = _certificateProvider.LoadSigningCertificateAsync().GetAwaiter().GetResult();
+				var certificate = _certificateProvider.LoadSigningCertificateAsync(envelope.SigningCertificateId).GetAwaiter().GetResult();
 				return tx.CreatePDF(envelope, envelope.UserID, _paths, certificate);
 			}
 		}

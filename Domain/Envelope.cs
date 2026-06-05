@@ -12,6 +12,7 @@ namespace SignFabric.Domain {
 		public string Name { get; set; }
 		public DateTime Created { get; set; }
 		public DateTime Sent { get; set; }
+		public string SigningCertificateId { get; set; }
 		public List<Signer> Signers { get; set; } = new List<Signer>();
 		public EnvelopeStatus Status { get; set; }
 		public string FaultMessage { get; set; }

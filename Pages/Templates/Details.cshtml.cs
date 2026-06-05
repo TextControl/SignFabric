@@ -16,7 +16,7 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace SignFabric.Pages.Templates {
-	[Authorize]
+	[Authorize(Roles = SignFabric.Application.Identity.AppRoles.EnvelopeCreators)]
 	public class DetailsModel : PageModel {
 		private readonly IDocumentPageService _pageService;
 		private readonly ITemplateWorkflowService _templateWorkflowService;

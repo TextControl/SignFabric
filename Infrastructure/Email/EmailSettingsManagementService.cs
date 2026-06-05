@@ -18,25 +18,28 @@ namespace SignFabric.Infrastructure.Email {
 		private const string TemplateMetadataFileName = "email-template-settings.json";
 		private static readonly Regex PlaceholderRegex = new(@"%%%[A-Za-z0-9_]+%%%", RegexOptions.Compiled);
 		private readonly string _appSettingsPath;
+		private readonly IConfiguration _configuration;
 		private readonly AppSettingsPathResolver _paths;
 		private readonly IDataProtector _protector;
 
 		public EmailSettingsManagementService(
 			IHostEnvironment environment,
+			IConfiguration configuration,
 			AppSettingsPathResolver paths,
 			IDataProtectionProvider dataProtectionProvider) {
-			_appSettingsPath = Path.Combine(environment.ContentRootPath, "appsettings.json");
+			_appSettingsPath = ResolveWritableAppSettingsPath(environment);
+			_configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
 			_paths = paths ?? throw new ArgumentNullException(nameof(paths));
 			_protector = dataProtectionProvider.CreateProtector(ProtectorPurpose);
 		}
 
-		public async Task<EmailSettingsConfiguration> GetSettingsAsync() {
-			var credentials = await ReadCredentialsAsync(migratePlainTextPassword: false, throwOnProtectedPasswordFailure: false);
+		public Task<EmailSettingsConfiguration> GetSettingsAsync() {
+			var credentials = ReadConfiguredCredentials(throwOnProtectedPasswordFailure: false);
 			var email = credentials.Email ?? new Configuration.Email();
 			var hasPassword = !string.IsNullOrEmpty(email.Password);
 			var passwordRequiresReset = email.PasswordProtected && hasPassword && !CanUnprotect(email.Password);
 
-			return new EmailSettingsConfiguration {
+			return Task.FromResult(new EmailSettingsConfiguration {
 				Username = email.Username,
 				From = email.From,
 				Bcc = email.Bcc,
@@ -45,7 +48,7 @@ namespace SignFabric.Infrastructure.Email {
 				HasPassword = hasPassword && !passwordRequiresReset,
 				IsPasswordProtected = email.PasswordProtected,
 				PasswordRequiresReset = passwordRequiresReset
-			};
+			});
 		}
 
 		public async Task SaveSettingsAsync(EmailSettingsConfiguration settings) {
@@ -116,14 +119,11 @@ namespace SignFabric.Infrastructure.Email {
 			await SaveTemplateMetadataAsync(Path.GetFileName(path), subject, preheader);
 		}
 
-		public async Task<Credentials> GetCredentialsAsync() {
-			return await ReadCredentialsAsync(migratePlainTextPassword: true, throwOnProtectedPasswordFailure: true);
-		}
+		public Task<Credentials> GetCredentialsAsync() =>
+			Task.FromResult(ReadConfiguredCredentials(throwOnProtectedPasswordFailure: true));
 
-		private async Task<Credentials> ReadCredentialsAsync(bool migratePlainTextPassword, bool throwOnProtectedPasswordFailure) {
-			var document = await ReadAppSettingsAsync();
-			var credentialsToken = document["Credentials"];
-			var credentials = credentialsToken?.ToObject<Credentials>() ?? new Credentials();
+		private Credentials ReadConfiguredCredentials(bool throwOnProtectedPasswordFailure) {
+			var credentials = _configuration.GetSection("Credentials").Get<Credentials>() ?? new Credentials();
 			credentials.Email ??= new Configuration.Email();
 
 			if (!string.IsNullOrEmpty(credentials.Email.Password)) {
@@ -131,13 +131,6 @@ namespace SignFabric.Infrastructure.Email {
 					if (throwOnProtectedPasswordFailure) {
 						credentials.Email.Password = Unprotect(credentials.Email.Password);
 					}
-				}
-				else if (migratePlainTextPassword) {
-					var email = EnsureObject(EnsureObject(document, "Credentials"), "EMail");
-					email["Password"] = Protect(credentials.Email.Password);
-					email["PasswordProtected"] = true;
-					await WriteAppSettingsAsync(document);
-					credentials.Email.PasswordProtected = true;
 				}
 			}
 
@@ -280,6 +273,14 @@ namespace SignFabric.Infrastructure.Email {
 			catch (Exception ex) {
 				throw new InvalidOperationException("The stored SMTP password could not be decrypted. Re-enter it in the admin portal.", ex);
 			}
+		}
+
+		private static string ResolveWritableAppSettingsPath(IHostEnvironment environment) {
+			var fileName = environment.IsDevelopment()
+				? "appsettings.Development.json"
+				: "appsettings.json";
+
+			return Path.Combine(environment.ContentRootPath, fileName);
 		}
 	}
 }

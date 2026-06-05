@@ -332,7 +332,7 @@ namespace SignFabric.Pages.Admin {
 			ActiveAdminTab = "certificates";
 			try {
 				await _certificateManagementService.ActivateLocalPfxAsync(certificateId);
-				StatusMessage = "Signing certificate activated.";
+				StatusMessage = "Default signing certificate updated.";
 			}
 			catch (Exception ex) {
 				StatusMessage = ex.Message;
@@ -400,6 +400,13 @@ namespace SignFabric.Pages.Admin {
 			TryValidateModel(EmailSettings, nameof(EmailSettings));
 
 			if (!ModelState.IsValid) {
+				if (IsAjaxRequest()) {
+					return BadRequest(new {
+						success = false,
+						errors = GetModelErrors()
+					});
+				}
+
 				await LoadAsync(EmailTemplate.FileName);
 				return Page();
 			}
@@ -485,12 +492,29 @@ namespace SignFabric.Pages.Admin {
 						SigningKey = AuthenticationSettings.LocalOAuthSigningKey,
 						AccessTokenMinutes = AuthenticationSettings.LocalOAuthAccessTokenMinutes,
 						Clients = currentSettings.LocalOAuth.Clients
+					},
+					SignerAccounts = new SignerAccountSettings {
+						Enabled = AuthenticationSettings.SignerAccountCreationEnabled
 					}
 				});
 				StatusMessage = "Authentication settings saved. Restart the application for authentication scheme changes to take effect.";
+
+				if (IsAjaxRequest()) {
+					return new JsonResult(new {
+						success = true,
+						message = StatusMessage
+					});
+				}
 			}
 			catch (Exception ex) {
 				StatusMessage = ex.Message;
+
+				if (IsAjaxRequest()) {
+					return BadRequest(new {
+						success = false,
+						errors = new[] { ex.Message }
+					});
+				}
 			}
 
 			return RedirectToPage();
@@ -557,7 +581,8 @@ namespace SignFabric.Pages.Admin {
 				LocalOAuthIssuer = AuthenticationConfiguration.LocalOAuth.Issuer,
 				LocalOAuthAudience = AuthenticationConfiguration.LocalOAuth.Audience,
 				LocalOAuthAccessTokenMinutes = AuthenticationConfiguration.LocalOAuth.AccessTokenMinutes,
-				LocalOAuthHasSigningKey = AuthenticationConfiguration.LocalOAuth.HasSigningKey
+				LocalOAuthHasSigningKey = AuthenticationConfiguration.LocalOAuth.HasSigningKey,
+				SignerAccountCreationEnabled = AuthenticationConfiguration.SignerAccounts.Enabled
 			};
 
 			EmailTemplates = await _emailSettingsManagementService.GetTemplatesAsync();
@@ -789,6 +814,9 @@ namespace SignFabric.Pages.Admin {
 			[Range(1, 1440)]
 			[Display(Name = "Access token lifetime in minutes")]
 			public int LocalOAuthAccessTokenMinutes { get; set; } = 60;
+
+			[Display(Name = "Offer signer account creation after signing")]
+			public bool SignerAccountCreationEnabled { get; set; }
 
 		}
 

@@ -1,0 +1,37 @@
+{
+  "Provider": null,
+  "ActiveCertificateId": "acd21f356b944a19bec0f827ab1aa631",
+  "AzureKeyVault": {
+    "VaultUri": null,
+    "CertificateName": null,
+    "UseDefaultAzureCredential": null,
+    "TenantId": null,
+    "ClientId": null
+  },
+  "Certificates": [
+    {
+      "Id": "acd21f356b944a19bec0f827ab1aa631",
+      "DisplayName": "My Certificate",
+      "FileName": "acd21f356b944a19bec0f827ab1aa631.pfx",
+      "Password": "CfDJ8CJS6im_GDhLqgh714Vl5HNjTxgU3m4LLR2V8QibShccN3xGwmeS1iHircpcnl_Yt5Usk3Pb_g3igWJDbD8I1YY4wivsTORcmcbjg9V6XTlX32xYAOQAHR-His7LkxgTTw",
+      "IsPasswordProtected": true,
+      "Thumbprint": "78BD4A6CE27748277A655F3A7F50B7059D48D238",
+      "Subject": "CN=Text Control, O=Text Control, C=US",
+      "Issuer": "CN=Text Control, O=Text Control, C=US",
+      "NotBefore": "2020-06-30 10:09:39Z",
+      "NotAfter": "2021-06-30 10:29:39Z"
+    },
+    {
+      "Id": "7f42b3a8220d4c26bcdc19f9380e682c",
+      "DisplayName": "123",
+      "FileName": "7f42b3a8220d4c26bcdc19f9380e682c.pfx",
+      "Password": "CfDJ8CJS6im_GDhLqgh714Vl5HNEDt-c2GKhOt3TRlf8zfXVbU_5BiBtVdaIt4Xjve-MtWaO4EAeS45pEcUnvZD0hq28M1INI7OhkFy3FnO9S5U3-2ZyjYNXlU50AQ2BaYO3fw",
+      "IsPasswordProtected": true,
+      "Thumbprint": "78BD4A6CE27748277A655F3A7F50B7059D48D238",
+      "Subject": "CN=Text Control, O=Text Control, C=US",
+      "Issuer": "CN=Text Control, O=Text Control, C=US",
+      "NotBefore": "2020-06-30 10:09:39Z",
+      "NotAfter": "2021-06-30 10:29:39Z"
+    }
+  ]
+}

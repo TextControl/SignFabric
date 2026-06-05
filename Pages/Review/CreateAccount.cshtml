@@ -1,0 +1,46 @@
+@page "/review/create-account/{id}"
+@model SignFabric.Pages.Review.CreateAccountModel
+
+@{
+    ViewData["Title"] = "Create Signer Account";
+}
+
+<section id="home" class="container section auth-section">
+    <div class="auth-card">
+        <div class="auth-icon" aria-hidden="true">
+            <i class="bi bi-person-plus"></i>
+        </div>
+        <h1>Create Account</h1>
+        <p>Access your signed documents anytime.</p>
+
+        <div class="auth-alert auth-info-alert" role="status">
+            Create a restricted signer account for <strong>@Model.SignerEmail</strong>.
+            @if (!string.IsNullOrWhiteSpace(Model.EnvelopeName)) {
+                <span>Signed document: @Model.EnvelopeName</span>
+            }
+        </div>
+
+        <form method="post" autocomplete="off" class="auth-form">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <input type="hidden" asp-for="Input.AccessId" />
+
+            <div class="mb-3 text-start">
+                <label asp-for="Input.Password" class="form-label"></label>
+                <input asp-for="Input.Password" class="form-control" autocomplete="new-password" />
+                <span asp-validation-for="Input.Password" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3 text-start">
+                <label asp-for="Input.ConfirmPassword" class="form-label"></label>
+                <input asp-for="Input.ConfirmPassword" class="form-control" autocomplete="new-password" />
+                <span asp-validation-for="Input.ConfirmPassword" class="text-danger"></span>
+            </div>
+
+            <button type="submit" class="btn btn-primary auth-submit">Create Account</button>
+        </form>
+    </div>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

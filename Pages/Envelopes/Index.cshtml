@@ -7,10 +7,10 @@
 
 <section id="home" class="container section">
 
-    @if (Model.CanRequestSignatures) {
+    @if (!Model.IsSignerAccount && Model.CanRequestSignatures) {
         <a asp-page="/New/Index" class="btn btn-warning mb-3"><strong>New Request</strong></a>
     }
-    else {
+    else if (!Model.IsSignerAccount) {
         <div class="alert alert-warning certificate-required-alert" role="alert">
             <strong>A signing certificate is required to request signatures.</strong>
             <p class="mb-0 mt-2">
@@ -23,7 +23,7 @@
         <button type="button" class="btn btn-outline-secondary mb-3" disabled>New Request</button>
     }
 
-    <h1>Signature Requests</h1>
+    <h1>@(Model.IsSignerAccount ? "Signed Documents" : "Signature Requests")</h1>
 
     <div class="row">
         <div class="col-12">
@@ -64,13 +64,13 @@
                                         </button>
 
                                         <ul class="dropdown-menu">
-                                            @if (envelope.Status == EnvelopeStatus.Incomplete) {
+                                            @if (!Model.IsSignerAccount && envelope.Status == EnvelopeStatus.Incomplete) {
                                                 <li><a asp-page="/Envelopes/Create" asp-route-id="@envelope.EnvelopeID" class="dropdown-item">Continue</a></li>
                                             }
                                             @if (envelope.Status == EnvelopeStatus.Signed) {
                                                 <li><a target="_blank" asp-page="/Envelopes/Details" asp-page-handler="Download" asp-route-id="@envelope.EnvelopeID" class="dropdown-item">Download</a></li>
                                             }
-                                            @if (envelope.Status == EnvelopeStatus.Sent) {
+                                            @if (!Model.IsSignerAccount && envelope.Status == EnvelopeStatus.Sent) {
                                                 <li><a asp-page="/Envelopes/Create" asp-route-id="@envelope.EnvelopeID" class="dropdown-item">Resend</a></li>
                                             }
                                         </ul>

@@ -6,6 +6,7 @@ using SignFabric.Application.Signing;
 using SignFabric.Application.Templates;
 using SignFabric.Application.Contracts;
 using SignFabric.Domain;
+using SignFabric.Application.Identity;
 using SignFabric.Presentation.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -24,6 +25,7 @@ namespace SignFabric.Pages.Dashboard {
 		private readonly IEnvelopeService _envelopeService;
 		private readonly ITemplateService _templateService;
 		private readonly ICertificateManagementService _certificateManagementService;
+		private readonly ISignerDocumentService _signerDocumentService;
 		private readonly string _userId;
 
 		public List<Envelope> Envelopes { get; set; } = new();
@@ -31,20 +33,32 @@ namespace SignFabric.Pages.Dashboard {
 		public int PendingSignatures { get; set; }
 		public int CompletedDocuments { get; set; }
 		public bool CanRequestSignatures { get; set; }
+		public bool IsSignerAccount { get; set; }
 
 		public IndexModel(
 			IEnvelopeService envelopeService,
 			ITemplateService templateService,
 			ICertificateManagementService certificateManagementService,
+			ISignerDocumentService signerDocumentService,
 			ICurrentUserContext currentUserContext) {
 			_envelopeService = envelopeService ?? throw new ArgumentNullException(nameof(envelopeService));
 			_templateService = templateService ?? throw new ArgumentNullException(nameof(templateService));
 			_certificateManagementService = certificateManagementService ?? throw new ArgumentNullException(nameof(certificateManagementService));
+			_signerDocumentService = signerDocumentService ?? throw new ArgumentNullException(nameof(signerDocumentService));
 			_userId = currentUserContext.UserId;
 		}
 
 		public async Task OnGetAsync() {
 			try {
+				IsSignerAccount = User.IsInRole(AppRoles.Signer);
+				if (IsSignerAccount) {
+					var signerEmail = User.FindFirst(ClaimTypes.Email)?.Value ?? User.Identity?.Name;
+					Envelopes = await _signerDocumentService.GetSignedDocumentsAsync(signerEmail);
+					CanRequestSignatures = false;
+					CompletedDocuments = Envelopes.Count;
+					return;
+				}
+
 				// Load user's envelopes
 				Envelopes = await _envelopeService.GetAllAsync(_userId);
 				

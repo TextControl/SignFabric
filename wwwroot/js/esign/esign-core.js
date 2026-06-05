@@ -262,6 +262,7 @@
 
             var data = new FormData();
             data.append(file.name, file);
+            appendSigningCertificate(data);
 
             uploadDocument(data);
         },
@@ -709,6 +710,7 @@
 
             var data = new FormData();
             data.append(file.name, file);
+            appendSigningCertificate(data);
 
             uploadDocument(data);
         },
@@ -790,6 +792,18 @@
                 })
                 .catch(function (error) {
                     showError(error, "The template could not be renamed.");
+                });
+        },
+
+        updateSigningCertificate: function (envelopeId, signingCertificateId) {
+            postJson("/envelope/signing-certificate/" + envelopeId, {
+                signingCertificateId: signingCertificateId
+            }, false)
+                .then(function () {
+                    TextControl.esign.showToast("Signing certificate updated.");
+                })
+                .catch(function (error) {
+                    showError(error, "The signing certificate could not be updated.");
                 });
         }
 
@@ -881,6 +895,13 @@
             });
     }
 
+    function appendSigningCertificate(data) {
+        var selector = document.getElementById("signingCertificateId");
+        if (selector && selector.value) {
+            data.append("signingCertificateId", selector.value);
+        }
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
         var uploadBox = document.getElementById("uploadbox");
         var files = document.getElementById("files");
@@ -903,6 +924,13 @@
             processForm.addEventListener("submit", function (event) {
                 event.preventDefault();
                 event.stopPropagation();
+            });
+        }
+
+        var signingCertificate = document.getElementById("signingCertificateId");
+        if (signingCertificate && signingCertificate.dataset.envelopeId) {
+            signingCertificate.addEventListener("change", function () {
+                TextControl.esign.updateSigningCertificate(signingCertificate.dataset.envelopeId, signingCertificate.value);
             });
         }
     });

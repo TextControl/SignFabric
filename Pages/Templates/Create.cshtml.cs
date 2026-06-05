@@ -20,7 +20,7 @@ namespace SignFabric.Pages.Templates {
 	/// <summary>
 	/// Templates Create/Upload Page
 	/// </summary>
-	[Authorize]
+	[Authorize(Roles = SignFabric.Application.Identity.AppRoles.EnvelopeCreators)]
 	public class CreateModel : PageModel {
 		private readonly IDocumentProcessingService _documentService;
 		private readonly IFieldExtractionService _fieldService;

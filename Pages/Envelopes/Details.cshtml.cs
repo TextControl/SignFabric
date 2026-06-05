@@ -6,6 +6,7 @@ using SignFabric.Application.Signing;
 using SignFabric.Application.Templates;
 using SignFabric.Application.Contracts;
 using SignFabric.Domain;
+using SignFabric.Application.Identity;
 using SignFabric.Presentation.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -22,18 +23,22 @@ namespace SignFabric.Pages.Envelopes {
 	public class DetailsModel : PageModel {
 		private readonly IDocumentPageService _pageService;
 		private readonly ISigningWorkflowService _signingWorkflowService;
+		private readonly ISignerDocumentService _signerDocumentService;
 		private readonly string _userId;
 
 		public Envelope Envelope { get; set; }
 		public string ThumbnailSvg { get; set; }
+		public bool IsSignerAccount { get; set; }
 		private Dictionary<string, string> _signatureImages = new();
 
 		public DetailsModel(
 			IDocumentPageService pageService,
 			ISigningWorkflowService signingWorkflowService,
+			ISignerDocumentService signerDocumentService,
 			ICurrentUserContext currentUserContext) {
 			_pageService = pageService;
 			_signingWorkflowService = signingWorkflowService;
+			_signerDocumentService = signerDocumentService;
 			_userId = currentUserContext.UserId;
 		}
 
@@ -43,10 +48,14 @@ namespace SignFabric.Pages.Envelopes {
 					return NotFound();
 				}
 
-				var model = await _pageService.GetEnvelopeDetailsAsync(_userId, id);
+				IsSignerAccount = User.IsInRole(AppRoles.Signer);
+				var model = IsSignerAccount
+					? await _signerDocumentService.GetSignedDocumentDetailsAsync(GetSignerEmail(), id)
+					: await _pageService.GetEnvelopeDetailsAsync(_userId, id);
 				Envelope = model.Envelope;
 
-				if (Envelope.Signers.All(signer => signer.SignerStatus == SignerStatus.Signed) &&
+				if (!IsSignerAccount &&
+					Envelope.Signers.All(signer => signer.SignerStatus == SignerStatus.Signed) &&
 					Envelope.Status != EnvelopeStatus.Signed &&
 					Envelope.Status != EnvelopeStatus.Faulted) {
 					try {
@@ -77,7 +86,10 @@ namespace SignFabric.Pages.Envelopes {
 					return NotFound();
 				}
 
-				var download = await DownloadEnvelopeWithFinalizationRetryAsync(id);
+				IsSignerAccount = User.IsInRole(AppRoles.Signer);
+				var download = IsSignerAccount
+					? await _signerDocumentService.DownloadSignedDocumentAsync(GetSignerEmail(), id)
+					: await DownloadEnvelopeWithFinalizationRetryAsync(id);
 				return File(download.Document, "application/pdf", $"{download.FileName}.pdf");
 			} catch (UnauthorizedAccessException) {
 				return Forbid();
@@ -98,5 +110,8 @@ namespace SignFabric.Pages.Envelopes {
 				return await _pageService.DownloadEnvelopeAsync(_userId, id);
 			}
 		}
+
+		private string GetSignerEmail() =>
+			User.FindFirst(ClaimTypes.Email)?.Value ?? User.Identity?.Name;
 	}
 }

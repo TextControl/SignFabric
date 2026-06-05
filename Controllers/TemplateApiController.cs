@@ -1,5 +1,6 @@
 using SignFabric.Application.Services;
 using SignFabric.Application.Abstractions;
+using SignFabric.Application.Identity;
 using SignFabric.Application.ContractManagement;
 using SignFabric.Application.Envelopes;
 using SignFabric.Application.Signing;
@@ -18,7 +19,7 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace SignFabric.Controllers {
-	[Authorize]
+	[Authorize(Roles = AppRoles.EnvelopeCreators)]
 	[ApiController]
 	[Route("api/[controller]")]
 	public class TemplateApiController : ControllerBase {

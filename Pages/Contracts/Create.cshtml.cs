@@ -17,7 +17,7 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace SignFabric.Pages.Contracts {
-	[Authorize]
+	[Authorize(Roles = SignFabric.Application.Identity.AppRoles.EnvelopeCreators)]
 	public class CreateModel : PageModel {
 		private readonly IDocumentProcessingService _documentService;
 		private readonly IUploadPolicy _uploadPolicy;

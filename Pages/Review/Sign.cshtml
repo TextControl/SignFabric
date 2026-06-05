@@ -48,7 +48,10 @@
         }).Render()
     </section>
 
-    <section id="reviewSigningResult" class="review-sign-result d-none" aria-live="polite" data-signer-email="@Model.Signer.Email">
+    <section id="reviewSigningResult"
+             class="review-sign-result d-none"
+             aria-live="polite"
+             data-signer-email="@Model.Signer.Email">
         <div class="auth-card">
             <div id="reviewSigningResultIcon" class="auth-icon" aria-hidden="true">
                 <i class="bi bi-check2-circle"></i>
@@ -56,6 +59,19 @@
             <h1 id="reviewSigningResultTitle">Document Signed</h1>
             <p id="reviewSigningResultMessage">The document has been signed successfully.</p>
             <div id="reviewSigningResultDetail" class="auth-alert d-none" role="alert"></div>
+            @if (Model.CanCreateSignerAccount) {
+                <div id="reviewSignerAccountPrompt" class="review-signer-account-prompt d-none" data-account-prompt="create">
+                    <h2>Access your signed documents anytime</h2>
+                    <p>Create a signer account for <strong>@Model.Signer.Email</strong> to view and download completed documents later.</p>
+                    <a asp-page="/Review/CreateAccount" asp-route-id="@Model.AccessId" class="btn btn-primary">Create Account</a>
+                </div>
+            }
+            else if (Model.SignerAccountExists) {
+                <div id="reviewSignerAccountPrompt" class="review-signer-account-prompt d-none" data-account-prompt="signin">
+                    <p>An account already exists for <strong>@Model.Signer.Email</strong>.</p>
+                    <a asp-area="Identity" asp-page="/Account/Login" class="btn btn-outline-primary">Sign In</a>
+                </div>
+            }
         </div>
     </section>
 

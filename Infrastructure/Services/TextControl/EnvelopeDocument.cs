@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace SignFabric.Infrastructure.Services.TextControl {
 	public static class EnvelopeDocument {
-		public static string ProcessNewDocument(MemoryStream ms, string Filename, EnvelopeStore Store, string UserName, string UserId) {
+		public static string ProcessNewDocument(MemoryStream ms, string Filename, EnvelopeStore Store, string UserName, string UserId, string SigningCertificateId) {
 
 			ms.Position = 0;
 			string image;
@@ -32,6 +32,7 @@ namespace SignFabric.Infrastructure.Services.TextControl {
 				UserID = UserId,
 				Name = Filename,
 				EnvelopeID = Guid.NewGuid().ToString(),
+				SigningCertificateId = SigningCertificateId,
 				ContainsSignatureBoxes = bContainsSignatureBoxes
 			};
 

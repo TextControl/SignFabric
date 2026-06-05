@@ -488,6 +488,7 @@
                     var title = document.getElementById("reviewSigningResultTitle");
                     var text = document.getElementById("reviewSigningResultMessage");
                     var detail = document.getElementById("reviewSigningResultDetail");
+                    var accountPrompt = document.getElementById("reviewSignerAccountPrompt");
                     var email = result ? result.getAttribute("data-signer-email") : "";
                     var isSuccess = state === "success";
                     var isError = state === "error";
@@ -528,6 +529,10 @@
                         detail.classList.remove("d-none");
                         detail.textContent = message || "Please close this page. The sender can review the issue in the envelope overview.";
                     }
+
+                    if (accountPrompt) {
+                        accountPrompt.classList.toggle("d-none", !isSuccess);
+                    }
                 }
 
                 function isSubmitAction(element) {
@@ -552,7 +557,7 @@
                 }, true);
 
                 TXDocumentViewer.signatures.setSubmitCallback(function (result) {
-                    if (result == "true") {
+                    if (result === true || result == "true") {
                         showSigningState("success");
                     }
                     else {

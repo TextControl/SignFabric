@@ -16,7 +16,7 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace SignFabric.Pages.Envelopes {
-	[Authorize]
+	[Authorize(Roles = SignFabric.Application.Identity.AppRoles.EnvelopeCreators)]
 	public class EditModel : PageModel {
 		private readonly IEnvelopeService _envelopeService;
 		private readonly IDocumentPageService _pageService;

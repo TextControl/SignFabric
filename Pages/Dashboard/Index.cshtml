@@ -8,36 +8,39 @@
 <section id="home" class="container section">
 
     <h1>Dashboard</h1>
-    <p>Welcome! Here's your signing activity overview.</p>
+    <p>@(Model.IsSignerAccount ? "Your completed documents are available below." : "Welcome! Here's your signing activity overview.")</p>
 
     <div class="row mt-5">
-        <div class="col-md-3">
+        <div class="col-md-@(Model.IsSignerAccount ? "6" : "3")">
             <div class="box">
                 <p><strong>Pending Signatures</strong></p>
                 <h2>@Model.PendingSignatures</h2>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-@(Model.IsSignerAccount ? "6" : "3")">
             <div class="box">
                 <p><strong>Completed Documents</strong></p>
                 <h2>@Model.CompletedDocuments</h2>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="box">
-                <p><strong>Total Templates</strong></p>
-                <h2>@Model.Templates.Count</h2>
+        @if (!Model.IsSignerAccount) {
+            <div class="col-md-3">
+                <div class="box">
+                    <p><strong>Total Templates</strong></p>
+                    <h2>@Model.Templates.Count</h2>
+                </div>
             </div>
-        </div>
-        <div class="col-md-3">
-            <div class="box">
-                <p><strong>Total Envelopes</strong></p>
-                <h2>@Model.Envelopes.Count</h2>
+            <div class="col-md-3">
+                <div class="box">
+                    <p><strong>Total Envelopes</strong></p>
+                    <h2>@Model.Envelopes.Count</h2>
+                </div>
             </div>
-        </div>
+        }
     </div>
 
-    <div class="row mt-5">
+    @if (!Model.IsSignerAccount) {
+        <div class="row mt-5">
         <div class="col-md-12">
             <div class="box highlight">
                 <h4>Quick Actions</h4>
@@ -69,11 +72,12 @@
             </div>
         </div>
     </div>
+    }
 
     @if (Model.Envelopes.Count > 0) {
         <div class="row mt-5">
             <div class="col-md-12">
-                <h2 class="mb-3">Recent Envelopes</h2>
+                <h2 class="mb-3">@(Model.IsSignerAccount ? "Signed Documents" : "Recent Envelopes")</h2>
                 <table class="table table-hover mt-5" data-esign-table="overview" data-page-size="10">
                     <thead>
                         <tr>
@@ -99,13 +103,13 @@
                                         </button>
 
                                         <ul class="dropdown-menu">
-                                            @if (env.Status == EnvelopeStatus.Incomplete) {
+                                            @if (!Model.IsSignerAccount && env.Status == EnvelopeStatus.Incomplete) {
                                                 <li><a asp-page="/Envelopes/Create" asp-route-id="@env.EnvelopeID" class="dropdown-item">Continue</a></li>
                                             }
                                             @if (env.Status == EnvelopeStatus.Signed) {
                                                 <li><a target="_blank" asp-page="/Envelopes/Details" asp-page-handler="Download" asp-route-id="@env.EnvelopeID" class="dropdown-item">Download</a></li>
                                             }
-                                            @if (env.Status == EnvelopeStatus.Sent) {
+                                            @if (!Model.IsSignerAccount && env.Status == EnvelopeStatus.Sent) {
                                                 <li><a asp-page="/Envelopes/Create" asp-route-id="@env.EnvelopeID" class="dropdown-item">Resend</a></li>
                                             }
                                             @if (env.Status == EnvelopeStatus.Faulted) {

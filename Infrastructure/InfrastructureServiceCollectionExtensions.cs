@@ -21,6 +21,7 @@ namespace SignFabric.Infrastructure {
 			services.Configure<AppSettings>(configuration.GetSection("AppSettings"));
 			services.Configure<BootstrapAdminOptions>(configuration.GetSection("BootstrapAdmin"));
 			services.Configure<LocalOAuthOptions>(configuration.GetSection("Authentication:LocalOAuth"));
+			services.Configure<SignerAccountOptions>(configuration.GetSection("SignerAccounts"));
 
 			services.AddDataProtection();
 			services.AddSingleton<AppSettingsPathResolver>();
@@ -42,6 +43,7 @@ namespace SignFabric.Infrastructure {
 			services.AddScoped<IAuditLogger, AuditLogger>();
 			services.AddScoped<IUploadPolicy, ConfiguredUploadPolicy>();
 			services.AddScoped<IStoreRepositoryFactory, StoreRepositoryFactory>();
+			services.AddScoped<ISignerDocumentService, SignerDocumentService>();
 			services.AddScoped<IUserDataStoreCleaner, UserDataStoreCleaner>();
 			services.AddScoped<IEnvelopeDocumentFactory, EnvelopeDocumentFactory>();
 			services.AddScoped<ISampleDocumentProvider, AppDataSampleDocumentProvider>();

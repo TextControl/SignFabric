@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Claims;
@@ -23,7 +24,7 @@ namespace SignFabric.Pages.Envelopes {
 	/// Envelopes Create Page - prepare document for signing
 	/// This is a multi-step form that uses JavaScript/AJAX for interaction
 	/// </summary>
-	[Authorize]
+	[Authorize(Roles = SignFabric.Application.Identity.AppRoles.EnvelopeCreators)]
 	public class CreateModel : PageModel {
 		private readonly IDocumentPageService _pageService;
 		private readonly IStoreRepositoryFactory _storeFactory;
@@ -33,6 +34,8 @@ namespace SignFabric.Pages.Envelopes {
 
 		public Envelope Envelope { get; set; }
 		public string CertificateRequiredMessage { get; set; }
+		public IReadOnlyList<SigningCertificateSummary> Certificates { get; set; } = new List<SigningCertificateSummary>();
+		public string DefaultCertificateId { get; set; }
 
 		[BindProperty(SupportsGet = true)]
 		public string Id { get; set; }
@@ -70,6 +73,8 @@ namespace SignFabric.Pages.Envelopes {
 				}
 
 				Envelope = await _pageService.GetEnvelopeAsync(_userId, Id);
+				Certificates = await _certificateManagementService.GetCertificatesAsync();
+				DefaultCertificateId = _certificateManagementService.GetDefaultLocalCertificateId();
 
 				return Page();
 			} catch (UnauthorizedAccessException) {

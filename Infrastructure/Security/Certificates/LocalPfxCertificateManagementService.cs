@@ -63,6 +63,23 @@ namespace SignFabric.Infrastructure.Security.Certificates {
 				manifest.Certificates.Any(certificate => certificate.Id == activeCertificateId);
 		}
 
+		public string GetDefaultLocalCertificateId() {
+			var manifest = ReadManifest();
+			var activeCertificateId = GetActiveCertificateId(manifest);
+			return manifest.Certificates.Any(certificate => certificate.Id == activeCertificateId)
+				? activeCertificateId
+				: manifest.Certificates.FirstOrDefault()?.Id;
+		}
+
+		public bool IsLocalCertificateAvailable(string id) {
+			if (string.IsNullOrWhiteSpace(id)) {
+				return false;
+			}
+
+			var manifest = ReadManifest();
+			return manifest.Certificates.Any(certificate => certificate.Id == id);
+		}
+
 		public Task ConfigureAzureKeyVaultAsync(
 			string vaultUri,
 			string certificateName,
@@ -183,15 +200,19 @@ namespace SignFabric.Infrastructure.Security.Certificates {
 			});
 
 		internal (string Path, string Password) GetActiveLocalCertificate() {
+			var activeCertificateId = GetDefaultLocalCertificateId();
+			return GetLocalCertificate(activeCertificateId);
+		}
+
+		internal (string Path, string Password) GetLocalCertificate(string certificateId) {
 			var manifest = ReadManifest();
-			var activeCertificateId = GetActiveCertificateId(manifest);
-			var active = manifest.Certificates.FirstOrDefault(certificate => certificate.Id == activeCertificateId);
+			var active = manifest.Certificates.FirstOrDefault(certificate => certificate.Id == certificateId);
 
 			if (active != null) {
 				return (Path.Combine(_paths.CertificateStorePath, active.FileName), UnprotectPassword(active));
 			}
 
-			throw new InvalidOperationException("No active signing certificate is configured. Upload and activate a certificate in the admin portal before creating envelopes.");
+			throw new InvalidOperationException("The selected signing certificate is not available. Select another certificate or update the default certificate in the admin portal.");
 		}
 
 		internal SigningCertificateConfiguration GetActiveSigningConfiguration() =>

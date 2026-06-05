@@ -17,12 +17,24 @@ namespace SignFabric.Infrastructure.Services {
 			_certificateManagementService = certificateManagementService ?? throw new ArgumentNullException(nameof(certificateManagementService));
 		}
 
-		public string CreateEnvelopeFromDocument(string userId, string userName, MemoryStream documentStream, string fileName) {
+		public string CreateEnvelopeFromDocument(string userId, string userName, MemoryStream documentStream, string fileName) =>
+			CreateEnvelopeFromDocument(userId, userName, documentStream, fileName, null);
+
+		public string CreateEnvelopeFromDocument(string userId, string userName, MemoryStream documentStream, string fileName, string signingCertificateId) {
 			if (!_certificateManagementService.HasActiveSigningCertificate()) {
-				throw new InvalidOperationException("No active signing certificate is configured. Upload and activate a certificate in the admin portal before creating envelopes.");
+				throw new InvalidOperationException("No default signing certificate is configured. Upload and set a default certificate in the admin portal before creating envelopes.");
 			}
 
-			return EnvelopeDocument.ProcessNewDocument(documentStream, fileName, new EnvelopeStore(userId, _paths), userName, userId);
+			var resolvedCertificateId = string.IsNullOrWhiteSpace(signingCertificateId)
+				? _certificateManagementService.GetDefaultLocalCertificateId()
+				: signingCertificateId.Trim();
+
+			if (!string.IsNullOrWhiteSpace(resolvedCertificateId) &&
+				!_certificateManagementService.IsLocalCertificateAvailable(resolvedCertificateId)) {
+				throw new InvalidOperationException("The selected signing certificate is not available.");
+			}
+
+			return EnvelopeDocument.ProcessNewDocument(documentStream, fileName, new EnvelopeStore(userId, _paths), userName, userId, resolvedCertificateId);
 		}
 	}
 }

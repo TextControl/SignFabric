@@ -80,7 +80,8 @@ namespace SignFabric.Controllers {
 					_userId,
 					_userManager.GetUserName(User) ?? _userName,
 					stream,
-					request.FileName);
+					request.FileName,
+					request.SigningCertificateId);
 
 				var envelope = store.GetEnvelopes(envelopeId).FirstOrDefault()
 					?? throw new InvalidOperationException("Envelope was created but could not be loaded.");
@@ -269,6 +270,7 @@ namespace SignFabric.Controllers {
 				created = envelope.Created,
 				sent = envelope.Sent == default ? (DateTime?)null : envelope.Sent,
 				containsSignatureBoxes = envelope.ContainsSignatureBoxes,
+				signingCertificateId = envelope.SigningCertificateId,
 				faultMessage = envelope.FaultMessage,
 				signers = envelope.Signers.Select(ToSignerResponse).ToList()
 			};
@@ -292,6 +294,7 @@ namespace SignFabric.Controllers {
 		public string FileName { get; set; }
 		public string DocumentBase64 { get; set; }
 		public List<CreateEnvelopeSignerApiRequest> Signers { get; set; } = new();
+		public string SigningCertificateId { get; set; }
 		public bool? SendImmediately { get; set; } = true;
 	}
 

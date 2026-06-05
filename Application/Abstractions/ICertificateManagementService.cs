@@ -7,6 +7,8 @@ namespace SignFabric.Application.Abstractions {
 		Task<IReadOnlyList<SigningCertificateSummary>> GetCertificatesAsync();
 		Task<SigningCertificateConfiguration> GetConfigurationAsync();
 		bool HasActiveSigningCertificate();
+		string GetDefaultLocalCertificateId();
+		bool IsLocalCertificateAvailable(string id);
 		Task ConfigureAzureKeyVaultAsync(string vaultUri, string certificateName, bool useDefaultAzureCredential, string tenantId, string clientId);
 		Task UseLocalPfxAsync();
 		Task UploadLocalPfxAsync(string displayName, string fileName, Stream certificateStream, string password);

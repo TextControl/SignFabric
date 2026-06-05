@@ -1,4 +1,5 @@
 using SignFabric.Application.Abstractions;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -11,41 +12,31 @@ using System.Threading.Tasks;
 namespace SignFabric.Infrastructure.Identity {
 	public class AuthenticationSettingsManagementService : IAuthenticationSettingsManagementService {
 		private readonly string _appSettingsPath;
+		private readonly IConfiguration _configuration;
 
-		public AuthenticationSettingsManagementService(IHostEnvironment environment) {
-			_appSettingsPath = Path.Combine(environment.ContentRootPath, "appsettings.json");
+		public AuthenticationSettingsManagementService(IHostEnvironment environment, IConfiguration configuration) {
+			_appSettingsPath = ResolveWritableAppSettingsPath(environment);
+			_configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
 		}
 
-		public async Task<AuthenticationSettingsConfiguration> GetSettingsAsync() {
-			var document = await ReadAppSettingsAsync();
-			var authentication = document["Authentication"] as JObject ?? new JObject();
-			var oidc = authentication["OpenIdConnect"] as JObject ?? new JObject();
-			var localOAuth = authentication["LocalOAuth"] as JObject ?? new JObject();
+		public Task<AuthenticationSettingsConfiguration> GetSettingsAsync() {
+			var oidcSection = _configuration.GetSection("Authentication:OpenIdConnect");
+			var localOAuthSection = _configuration.GetSection("Authentication:LocalOAuth");
+			var oidc = oidcSection.Get<OpenIdConnectAuthenticationSettings>() ?? new OpenIdConnectAuthenticationSettings();
+			var localOAuth = localOAuthSection.Get<LocalOAuthSettings>() ?? new LocalOAuthSettings();
+			var signerAccounts = _configuration.GetSection("SignerAccounts").Get<SignerAccountSettings>() ?? new SignerAccountSettings();
 
-			return new AuthenticationSettingsConfiguration {
-				Bearer = (authentication["Bearer"] as JObject)?.ToObject<BearerAuthenticationSettings>() ?? new BearerAuthenticationSettings(),
-				OpenIdConnect = new OpenIdConnectAuthenticationSettings {
-					Enabled = oidc.Value<bool?>("Enabled") ?? false,
-					DisplayName = oidc.Value<string>("DisplayName"),
-					Authority = oidc.Value<string>("Authority"),
-					ClientId = oidc.Value<string>("ClientId"),
-					HasClientSecret = !string.IsNullOrWhiteSpace(oidc.Value<string>("ClientSecret")),
-					CallbackPath = oidc.Value<string>("CallbackPath"),
-					SignedOutCallbackPath = oidc.Value<string>("SignedOutCallbackPath"),
-					ResponseType = oidc.Value<string>("ResponseType"),
-					SaveTokens = oidc.Value<bool?>("SaveTokens") ?? true,
-					AutoProvisionUsers = oidc.Value<bool?>("AutoProvisionUsers") ?? false,
-					Scopes = ReadStringArray(oidc["Scopes"])
-				},
-				LocalOAuth = new LocalOAuthSettings {
-					Enabled = localOAuth.Value<bool?>("Enabled") ?? false,
-					Issuer = localOAuth.Value<string>("Issuer"),
-					Audience = localOAuth.Value<string>("Audience"),
-					HasSigningKey = !string.IsNullOrWhiteSpace(localOAuth.Value<string>("SigningKey")),
-					AccessTokenMinutes = localOAuth.Value<int?>("AccessTokenMinutes") ?? 60,
-					Clients = ReadClients(localOAuth["Clients"])
-				}
-			};
+			oidc.HasClientSecret = !string.IsNullOrWhiteSpace(oidcSection["ClientSecret"]);
+			oidc.ClientSecret = null;
+			localOAuth.HasSigningKey = !string.IsNullOrWhiteSpace(localOAuthSection["SigningKey"]);
+			localOAuth.SigningKey = null;
+
+			return Task.FromResult(new AuthenticationSettingsConfiguration {
+				Bearer = _configuration.GetSection("Authentication:Bearer").Get<BearerAuthenticationSettings>() ?? new BearerAuthenticationSettings(),
+				OpenIdConnect = oidc,
+				LocalOAuth = localOAuth,
+				SignerAccounts = signerAccounts
+			});
 		}
 
 		public async Task SaveSettingsAsync(AuthenticationSettingsConfiguration settings) {
@@ -55,9 +46,12 @@ namespace SignFabric.Infrastructure.Identity {
 
 			var document = await ReadAppSettingsAsync();
 			var authentication = EnsureObject(document, "Authentication");
+			var signerAccounts = EnsureObject(document, "SignerAccounts");
 			var bearer = EnsureObject(authentication, "Bearer");
 			var oidc = EnsureObject(authentication, "OpenIdConnect");
 			var localOAuth = EnsureObject(authentication, "LocalOAuth");
+
+			signerAccounts["Enabled"] = settings.SignerAccounts?.Enabled ?? false;
 
 			bearer["Authority"] = settings.Bearer?.Authority ?? string.Empty;
 			bearer["Audience"] = settings.Bearer?.Audience ?? string.Empty;
@@ -187,12 +181,12 @@ namespace SignFabric.Infrastructure.Identity {
 			return created;
 		}
 
-		private static List<string> ReadStringArray(JToken token) =>
-			token is JArray array
-				? array.Select(value => value?.ToString()).Where(value => !string.IsNullOrWhiteSpace(value)).ToList()
-				: new List<string>();
+		private static string ResolveWritableAppSettingsPath(IHostEnvironment environment) {
+			var fileName = environment.IsDevelopment()
+				? "appsettings.Development.json"
+				: "appsettings.json";
 
-		private static List<LocalOAuthClientSettings> ReadClients(JToken token) =>
-			token?.ToObject<List<LocalOAuthClientSettings>>() ?? new List<LocalOAuthClientSettings>();
+			return Path.Combine(environment.ContentRootPath, fileName);
+		}
 	}
 }

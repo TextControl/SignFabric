@@ -20,7 +20,10 @@ namespace SignFabric.Infrastructure.Security.Certificates {
 			_localCertificates = localCertificates;
 		}
 
-		public Task<X509Certificate2> LoadSigningCertificateAsync() {
+		public Task<X509Certificate2> LoadSigningCertificateAsync() =>
+			LoadSigningCertificateAsync(null);
+
+		public Task<X509Certificate2> LoadSigningCertificateAsync(string certificateId) {
 			var configuration = _localCertificates.GetActiveSigningConfiguration();
 			var provider = configuration.Provider ?? _settings.SigningCertificate?.Provider ?? "LocalPfx";
 
@@ -28,7 +31,10 @@ namespace SignFabric.Infrastructure.Security.Certificates {
 				return LoadAzureKeyVaultCertificateAsync(configuration);
 			}
 
-			var certificate = _localCertificates.GetActiveLocalCertificate();
+			var certificate = string.IsNullOrWhiteSpace(certificateId)
+				? _localCertificates.GetActiveLocalCertificate()
+				: _localCertificates.GetLocalCertificate(certificateId);
+
 			return Task.FromResult(new X509Certificate2(
 				certificate.Path,
 				certificate.Password,

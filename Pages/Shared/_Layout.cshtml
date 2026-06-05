@@ -5,7 +5,8 @@
 
 @{
     var isSignedIn = SignInManager.IsSignedIn(User);
-    var canRequestSignatures = !isSignedIn || CertificateManagementService.HasActiveSigningCertificate();
+    var isSignerAccount = User.IsInRole(SignFabric.Application.Identity.AppRoles.Signer);
+    var canRequestSignatures = (!isSignedIn || CertificateManagementService.HasActiveSigningCertificate()) && !isSignerAccount;
     var newMenuTitle = canRequestSignatures
         ? "Create a new signature request"
         : "A signing certificate is required before signatures can be requested.";
@@ -67,27 +68,31 @@
                         <div class="mobile-menu-title">Menu</div>
                     </div>
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                        <li class="nav-item @(ViewContext.RouteData.Values["Page"]?.ToString()?.Contains("/New/") == true ? "active" : "")">
-                            @if (canRequestSignatures) {
-                                <a class="nav-link" href="/new" title="@newMenuTitle"><i class="bi bi-send nav-link-icon" aria-hidden="true"></i>New</a>
-                            }
-                            else {
-                                <span class="nav-link disabled" aria-disabled="true" title="@newMenuTitle"><i class="bi bi-send nav-link-icon" aria-hidden="true"></i>New</span>
-                            }
-                        </li>
+                        @if (!isSignerAccount) {
+                            <li class="nav-item @(ViewContext.RouteData.Values["Page"]?.ToString()?.Contains("/New/") == true ? "active" : "")">
+                                @if (canRequestSignatures) {
+                                    <a class="nav-link" href="/new" title="@newMenuTitle"><i class="bi bi-send nav-link-icon" aria-hidden="true"></i>New</a>
+                                }
+                                else {
+                                    <span class="nav-link disabled" aria-disabled="true" title="@newMenuTitle"><i class="bi bi-send nav-link-icon" aria-hidden="true"></i>New</span>
+                                }
+                            </li>
+                        }
 
                         @if (isSignedIn)
                         {
 
                             <li class="nav-item @(ViewContext.RouteData.Values["Page"]?.ToString()?.Contains("/Envelopes/") == true ? "active" : "")">
-                                <a class="nav-link" href="/envelopes"><i class="bi bi-pen nav-link-icon" aria-hidden="true"></i>Signatures</a>
+                                <a class="nav-link" href="/envelopes"><i class="bi bi-pen nav-link-icon" aria-hidden="true"></i>@(isSignerAccount ? "Documents" : "Signatures")</a>
                             </li>
-                            <li class="nav-item @(ViewContext.RouteData.Values["Page"]?.ToString()?.Contains("/Contracts/") == true ? "active" : "")">
-                                <a class="nav-link" href="/contracts"><i class="bi bi-file-earmark-text nav-link-icon" aria-hidden="true"></i>Contracts</a>
-                            </li>
-                            <li class="nav-item @(ViewContext.RouteData.Values["Page"]?.ToString()?.Contains("/Templates/") == true ? "active" : "")">
-                                <a class="nav-link" href="/templates"><i class="bi bi-layers nav-link-icon" aria-hidden="true"></i>Templates</a>
-                            </li>
+                            @if (!isSignerAccount) {
+                                <li class="nav-item @(ViewContext.RouteData.Values["Page"]?.ToString()?.Contains("/Contracts/") == true ? "active" : "")">
+                                    <a class="nav-link" href="/contracts"><i class="bi bi-file-earmark-text nav-link-icon" aria-hidden="true"></i>Contracts</a>
+                                </li>
+                                <li class="nav-item @(ViewContext.RouteData.Values["Page"]?.ToString()?.Contains("/Templates/") == true ? "active" : "")">
+                                    <a class="nav-link" href="/templates"><i class="bi bi-layers nav-link-icon" aria-hidden="true"></i>Templates</a>
+                                </li>
+                            }
                             @if (User.IsInRole(SignFabric.Application.Identity.AppRoles.Admin)) {
                                 <li class="nav-item @(ViewContext.RouteData.Values["Page"]?.ToString()?.Contains("/Admin/") == true ? "active" : "")">
                                     <a class="nav-link" href="/admin"><i class="bi bi-sliders nav-link-icon" aria-hidden="true"></i>Admin</a>
@@ -150,15 +155,19 @@
                 }
 
                 <nav class="signfabric-footer-nav" aria-label="Footer shortcuts">
-                    @if (canRequestSignatures) {
-                        <a href="/new">New Envelope</a>
-                    }
-                    else {
-                        <span aria-disabled="true" title="@newMenuTitle">New Envelope</span>
+                    @if (!isSignerAccount) {
+                        @if (canRequestSignatures) {
+                            <a href="/new">New Envelope</a>
+                        }
+                        else {
+                            <span aria-disabled="true" title="@newMenuTitle">New Envelope</span>
+                        }
                     }
                     @if (isSignedIn) {
-                        <a href="/envelopes">Signatures</a>
-                        <a href="/templates">Templates</a>
+                        <a href="/envelopes">@(isSignerAccount ? "Documents" : "Signatures")</a>
+                        @if (!isSignerAccount) {
+                            <a href="/templates">Templates</a>
+                        }
                         @if (User.IsInRole(SignFabric.Application.Identity.AppRoles.Admin)) {
                             <a href="/admin">Admin</a>
                         }

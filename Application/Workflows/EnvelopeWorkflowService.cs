@@ -49,6 +49,18 @@ namespace SignFabric.Application.Services {
 			});
 		}
 
+		public async Task<Envelope> UpdateAsync(string userId, Envelope envelope) {
+			return await Task.Run(() => {
+				if (envelope == null) {
+					throw new ArgumentNullException(nameof(envelope));
+				}
+
+				var store = _storeFactory.CreateEnvelopeRepository(userId);
+				store.Update(envelope.EnvelopeID, envelope);
+				return envelope;
+			});
+		}
+
 		public async Task<Envelope> SubmitAsync(string userId, string envelopeId, string host) {
 			return await Task.Run(() => {
 				var store = _storeFactory.CreateEnvelopeRepository(userId);
@@ -63,5 +75,8 @@ namespace SignFabric.Application.Services {
 
 		public Task<string> CreateAsync(string userId, string userName, MemoryStream documentStream, string fileName) =>
 			Task.Run(() => _envelopeDocumentFactory.CreateEnvelopeFromDocument(userId, userName, documentStream, fileName));
+
+		public Task<string> CreateAsync(string userId, string userName, MemoryStream documentStream, string fileName, string signingCertificateId) =>
+			Task.Run(() => _envelopeDocumentFactory.CreateEnvelopeFromDocument(userId, userName, documentStream, fileName, signingCertificateId));
 	}
 }

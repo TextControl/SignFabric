@@ -10,6 +10,9 @@ namespace SignFabric {
 	public class Program {
 		public static void Main(string[] args) {
 			var builder = WebApplication.CreateBuilder(args);
+			var environmentSettingsPath = Path.Combine(builder.Environment.ContentRootPath, $"appsettings.{builder.Environment.EnvironmentName}.json");
+			Console.WriteLine($"Hosting environment: {builder.Environment.EnvironmentName}");
+			Console.WriteLine($"Environment settings file: {environmentSettingsPath} (exists: {File.Exists(environmentSettingsPath)})");
 
 			builder.Services
 				.AddPresentation(builder.Configuration)

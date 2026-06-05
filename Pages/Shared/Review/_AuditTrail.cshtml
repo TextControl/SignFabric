@@ -6,13 +6,13 @@
 
         <h2 class="mb-4">Document Audit Trail <i class="bi bi-shield-check text-success" aria-hidden="true"></i></h2>
 
-        <div class="card">
-            <div class="card-header">
+        <div class="audit-trail-card">
+            <div class="audit-trail-card-header">
                 <i class="bi bi-clipboard-check-fill text-alignment" aria-hidden="true"></i> Envelope Information
             </div>
-            <div class="card-body">
-                <h5 class="card-title">Created</h5>
-                <p class="card-text">
+            <div class="audit-trail-card-body">
+                <h5 class="audit-trail-card-title">Created</h5>
+                <p>
                     By: @Model.Sender<br />
                     Date: @Model.Created
                 </p>
@@ -20,16 +20,16 @@
         </div>
 
         @if (Model.Status >= EnvelopeStatus.Sent) {
-            <div class="card mt-3">
-                <div class="card-header">
+            <div class="audit-trail-card">
+                <div class="audit-trail-card-header">
                     <i class="bi bi-send-fill text-alignment" aria-hidden="true"></i> Envelope Distribution
                 </div>
-                <div class="card-body">
-                    <h5 class="card-title">Sent</h5>
-                    <p class="card-text">
+                <div class="audit-trail-card-body">
+                    <h5 class="audit-trail-card-title">Sent</h5>
+                    <p>
                         @Model.Sent
                     </p>
-                    <h5 class="card-title">Recipients</h5>
+                    <h5 class="audit-trail-card-title">Recipients</h5>
 
                     <table class="table">
                         <thead>
@@ -73,12 +73,12 @@
         }
 
         @if (Model.Status == EnvelopeStatus.Signed) {
-            <div class="card mt-3">
-                <div class="card-header">
+            <div class="audit-trail-card">
+                <div class="audit-trail-card-header">
                     <i class="bi bi-pen-fill text-alignment" aria-hidden="true"></i> Signature
                 </div>
-                <div class="card-body">
-                    <h5 class="card-title">Fully Signed</h5>
+                <div class="audit-trail-card-body">
+                    <h5 class="audit-trail-card-title">Fully Signed</h5>
                     <table class="table">
                         <thead>
                             <tr>

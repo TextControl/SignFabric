@@ -50,6 +50,25 @@
                 <div class="col-md-8 offset-md-1 status-content">
                     <p><strong>Sender</strong><br />@User.Identity.Name</p>
 
+                    @if (Model.Certificates.Any()) {
+                        var selectedCertificateId = string.IsNullOrWhiteSpace(Model.Envelope.SigningCertificateId)
+                            ? Model.DefaultCertificateId
+                            : Model.Envelope.SigningCertificateId;
+
+                        <div class="mb-3">
+                            <label for="signingCertificateId" class="form-label">Signing Certificate</label>
+                            <select id="signingCertificateId"
+                                    class="form-select"
+                                    data-envelope-id="@Model.Envelope.EnvelopeID">
+                                @foreach (var certificate in Model.Certificates) {
+                                    <option value="@certificate.Id" selected="@(certificate.Id == selectedCertificateId)">
+                                        @certificate.DisplayName@(certificate.Id == Model.DefaultCertificateId ? " (Default)" : null)
+                                    </option>
+                                }
+                            </select>
+                        </div>
+                    }
+
                     @if (UserManager.FindByNameAsync(User.Identity.Name).Result.EmailConfirmed == false) {
                         <div class="alert alert-warning" role="alert">
                             No e-mail added. By adding an e-mail, you will receive signature notifications.

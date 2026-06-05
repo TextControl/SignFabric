@@ -15,7 +15,7 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace SignFabric.Pages.Templates {
-	[Authorize]
+	[Authorize(Roles = SignFabric.Application.Identity.AppRoles.EnvelopeCreators)]
 	public class IndexModel : PageModel {
 		private readonly IDocumentPageService _pageService;
 		private readonly string _userId;

@@ -1,16 +1,21 @@
 using SignFabric.Application.Abstractions;
+using SignFabric.Application.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace SignFabric.Pages.New {
-	[Authorize]
+	[Authorize(Roles = AppRoles.EnvelopeCreators)]
 	public class IndexModel : PageModel {
 		private readonly ICertificateManagementService _certificateManagementService;
 		private readonly IUploadPolicy _uploadPolicy;
 
 		public bool CanRequestSignatures { get; set; }
 		public string AcceptedFileTypes => _uploadPolicy.AcceptAttribute;
+		public IReadOnlyList<SigningCertificateSummary> Certificates { get; set; } = new List<SigningCertificateSummary>();
+		public string DefaultCertificateId { get; set; }
 
 		public IndexModel(
 			ICertificateManagementService certificateManagementService,
@@ -19,8 +24,10 @@ namespace SignFabric.Pages.New {
 			_uploadPolicy = uploadPolicy;
 		}
 
-		public IActionResult OnGet() {
+		public async Task<IActionResult> OnGetAsync() {
 			CanRequestSignatures = _certificateManagementService.HasActiveSigningCertificate();
+			Certificates = await _certificateManagementService.GetCertificatesAsync();
+			DefaultCertificateId = _certificateManagementService.GetDefaultLocalCertificateId();
 			return Page();
 		}
 	}

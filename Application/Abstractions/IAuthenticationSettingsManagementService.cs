@@ -13,6 +13,7 @@ namespace SignFabric.Application.Abstractions {
 		public BearerAuthenticationSettings Bearer { get; set; } = new();
 		public OpenIdConnectAuthenticationSettings OpenIdConnect { get; set; } = new();
 		public LocalOAuthSettings LocalOAuth { get; set; } = new();
+		public SignerAccountSettings SignerAccounts { get; set; } = new();
 	}
 
 	public class BearerAuthenticationSettings {
@@ -52,5 +53,9 @@ namespace SignFabric.Application.Abstractions {
 		public string SecretSha256 { get; set; }
 		public string UserId { get; set; }
 		public List<string> Scopes { get; set; } = new();
+	}
+
+	public class SignerAccountSettings {
+		public bool Enabled { get; set; }
 	}
 }
