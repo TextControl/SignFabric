@@ -114,8 +114,11 @@ The application uses ASP.NET Core Identity with LiteDB-backed users and roles as
 
 Current roles:
 
-- `Admin`
-- `User`
+- `Admin`: full administration access, including user management, certificate management, SMTP/e-mail templates, and authentication settings.
+- `User`: standard authenticated sender account. Users can create envelopes, manage templates/contracts, send signing requests, and access their own documents.
+- `Signer`: restricted account for recipients who signed without logging in. Signers can only view and download completed documents where their e-mail address is a signed recipient. They cannot create envelopes, templates, or contracts.
+
+Signer account creation is globally controlled in **Admin > Authentication > Signer Accounts**. When enabled, the post-signing confirmation dialog can offer recipients a restricted signer account so they can access their completed documents later. When disabled, signing ends with the signed confirmation dialog and no account prompt is shown.
 
 User management includes:
 
