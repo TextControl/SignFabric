@@ -42,3 +42,5 @@ ScaffoldingReadMe.txt
 /Data/IdentityLiteDB.db
 /appsettings.Production.json
 /appsettings.Development.json
+/Properties/PublishProfiles/Default Settings.pubxml
+/Data/users/6a22c645fe9ef70a068da527/envelopes.db
