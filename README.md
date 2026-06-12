@@ -259,6 +259,111 @@ If no external OAuth/OIDC provider is available, SignFabric can issue local clie
 
 Admins can create and remove local OAuth API clients in **Admin > Authentication**. The portal generates the client id and one-time client secret, stores only the SHA-256 secret hash, and assigns the client to the local user whose envelope store should own API-created envelopes.
 
+## Recent Changes
+
+### Editor and Sidebar UX
+
+- Reworked the envelope editor sidebar to match the newer template and contract editor style.
+- Added clearer section headings and placement hints for recipient signatures and recipient fields.
+- Updated the primary editor action from a generic save label to a clearer **Done Editing** flow.
+- Added consistent sidebar signature button states:
+  - green when a signature field exists in the document
+  - yellow when that signature field is currently selected
+- Switched sidebar signature state updates to TX Text Control signature field events:
+  - `signatureFieldCreated`
+  - `signatureFieldDeleted`
+  - `signatureFieldSelected`
+  - `signatureFieldDeselected`
+
+### Signature Area Wizard
+
+- Added an **Insert Signature Area** workflow in the envelope editor.
+- Added a modal wizard for inserting structured signature blocks.
+- Added recipient selection in the wizard so one signature block can be created for one or more selected signers.
+- Added optional row toggles for:
+  - signer name
+  - current date
+- Moved the wizard modal into the shared envelope editor partial so it is available in the active editor context.
+
+### Signature Area Table Generation
+
+- Implemented structured signature block creation as one table per selected signer.
+- Added a paragraph break between signer tables to separate multi-signer signature areas.
+- Added dynamic table plans so unchecked optional fields are not inserted as empty rows.
+- Current signature area row order:
+  1. Company
+  2. Signature
+  3. Current Date (optional)
+  4. Signer Name (optional)
+  5. Title
+- Company and Title rows insert a label followed by a line break and a text form field.
+- Signature rows insert a TX Text Control signature field.
+- Signature insertion prefers inline mode when the runtime supports it and falls back to anchored insertion when needed.
+
+### Signature Area Styling
+
+- Applied the `Normal` formatting style before signature area insertion.
+- Set the insertion font size to 12pt for generated signature blocks.
+- Added signature area table formatting with:
+  - outer box border
+  - emphasized signature underline
+  - cell spacing and padding
+- Adjusted the signature button styling to use inset outlines so borders render evenly.
+
+### Table Handling and Stability
+
+- Changed multi-signer signature area insertion to a two-phase flow:
+  1. create all signer tables first
+  2. populate each table afterward
+- Avoided stale table adapter issues by re-fetching tables by ID before populating them.
+- Reworked table ID allocation to scan existing table IDs once and reserve unique IDs locally for the current insertion run.
+- Avoided relying on table count for ID generation, which could collide with existing or non-contiguous table IDs.
+
+### Table Cell Insertion Fixes
+
+- Added explicit cell selection helpers for table row content insertion.
+- Normalized the TX Text Control cell-start behavior so content is inserted at the correct cell input position.
+- Explicitly collapsed the selection before inserting text, merge fields, form fields, and signature fields into table cells.
+- Fixed content bleeding and mixed-row insertion issues in multi-table signature area generation.
+
+### Signature Box Validation
+
+- Updated document signature validation to use `tx.SignatureFields` directly on the server side.
+- Removed the older frame-based signature box detection logic.
+- Kept envelope workflow validation aligned with the actual TX signature field objects used by the editor.
+
+### Recipient Assignment Workflow
+
+- Added support for detecting unassigned recipient-owned fields from templates.
+- Extended recipient assignment handling to include:
+  - form fields
+  - auto-fill fields such as signer name and signer email
+  - signature fields
+- Added automatic assignment when only one signer exists.
+- Added a modal assignment step when multiple signers exist and fields are still unassigned.
+
+### Template and Contract Flow Improvements
+
+- Aligned template and contract create/edit flows more closely with the updated envelope workflow.
+- Improved the use of thumbnails in creation and edit flows.
+- Added thumbnail refresh after editing templates and contracts.
+- Added template field assignment handling when creating envelopes from templates.
+- Added the path from template to contract creation.
+- Added recipient preselection when moving accepted contracts into a signature flow.
+
+### Error Handling and Messaging
+
+- Added popup-style modal error handling for invalid document uploads and unsupported conversions.
+- Reused the existing modal visual style instead of showing toasts.
+- Improved TX document conversion error handling in `TextControlHelpers`.
+- Removed leftover toast feedback in the field assignment flow to keep the UX aligned with modal-based messaging.
+
+### Cleanup
+
+- Removed obsolete toast markup from the affected editor and workflow views.
+- Removed an unused signature field event helper after switching to direct selected-field lookup.
+- Kept new document operations behind the existing `ITxDocumentService` abstraction and `TxDocumentService` implementation.
+
 Configure `Authentication:LocalOAuth`:
 
 ```json

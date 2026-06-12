@@ -28,9 +28,9 @@
     <PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="10.0.7" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="10.0.7" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-    <PackageReference Include="TXTextControl.TextControl.Core.SDK" Version="34.0.3" />
-    <PackageReference Include="TXTextControl.Web" Version="34.3.0" />
-    <PackageReference Include="TXTextControl.Web.DocumentEditor.Backend" Version="34.3.0" />
+    <PackageReference Include="TXTextControl.TextControl.Core.SDK" Version="34.0.4" />
+    <PackageReference Include="TXTextControl.Web" Version="34.4.0" />
+    <PackageReference Include="TXTextControl.Web.DocumentEditor.Backend" Version="34.4.0" />
     <PackageReference Include="TXTextControl.Web.DocumentViewer" Version="34.2.0" />
    
   </ItemGroup>
