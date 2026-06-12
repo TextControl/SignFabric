@@ -19,6 +19,7 @@ namespace SignFabric.Application.Services {
 
 		Task<List<Contract>> GetContractsAsync(string userId);
 		Task<ContractDetailsView> GetContractDetailsAsync(string userId, string contractId);
+		Task<ContractEditModel> GetContractEditModelAsync(string userId, string contractId);
 	}
 
 	public class EnvelopeDetailsView {

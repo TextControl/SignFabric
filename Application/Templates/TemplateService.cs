@@ -79,9 +79,8 @@ namespace SignFabric.Application.Templates {
 		public async Task DeleteAsync(string templateId) {
 			await Task.Run(() => {
 				var store = _storeFactory.CreateTemplateRepository(_userId);
-				var template = store.GetTemplates(templateId).FirstOrDefault();
-				if (template != null) {
-					store.Update(templateId, template);
+				if (store.GetTemplates(templateId).Any()) {
+					store.Delete(templateId);
 				}
 			});
 		}

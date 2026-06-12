@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -26,6 +27,8 @@ namespace SignFabric.Controllers {
 		private readonly IEditableDocumentService _editableDocumentService;
 		private readonly IUploadPolicy _uploadPolicy;
 		private readonly ICertificateManagementService _certificateManagementService;
+		private readonly IStoreRepositoryFactory _storeFactory;
+		private readonly ITxDocumentService _txDocumentService;
 		private readonly UserManager<LiteDB.Identity.Models.LiteDbUser> _userManager;
 		private readonly string _userId;
 
@@ -34,12 +37,16 @@ namespace SignFabric.Controllers {
 			IEditableDocumentService editableDocumentService,
 			IUploadPolicy uploadPolicy,
 			ICertificateManagementService certificateManagementService,
+			IStoreRepositoryFactory storeFactory,
+			ITxDocumentService txDocumentService,
 			ICurrentUserContext currentUserContext,
 			UserManager<LiteDB.Identity.Models.LiteDbUser> userManager) {
 			_workflowService = workflowService ?? throw new ArgumentNullException(nameof(workflowService));
 			_editableDocumentService = editableDocumentService ?? throw new ArgumentNullException(nameof(editableDocumentService));
 			_uploadPolicy = uploadPolicy ?? throw new ArgumentNullException(nameof(uploadPolicy));
 			_certificateManagementService = certificateManagementService ?? throw new ArgumentNullException(nameof(certificateManagementService));
+			_storeFactory = storeFactory ?? throw new ArgumentNullException(nameof(storeFactory));
+			_txDocumentService = txDocumentService ?? throw new ArgumentNullException(nameof(txDocumentService));
 			_userManager = userManager;
 			_userId = currentUserContext.UserId;
 		}
@@ -82,6 +89,49 @@ namespace SignFabric.Controllers {
 		public async Task<IActionResult> ReceiveRecipients(string id) {
 			try {
 				return Ok(await _workflowService.GetRecipientsAsync(_userId, id));
+			} catch (Exception ex) {
+				return BadRequest(new { error = ex.Message, success = false });
+			}
+		}
+
+		[HttpGet("field-assignments/{id}")]
+		[HttpGet("/envelope/field-assignments/{id}")]
+		public async Task<IActionResult> GetFieldAssignments(string id) {
+			try {
+				var envelope = await _workflowService.GetRecipientsAsync(_userId, id);
+				var store = _storeFactory.CreateEnvelopeRepository(_userId);
+				var state = new FieldAssignmentState {
+					Fields = _txDocumentService.GetUnassignedRecipientFields(store.GetDocument(id), envelope.Signers)
+				};
+
+				return Ok(state);
+			} catch (Exception ex) {
+				return BadRequest(new { error = ex.Message, success = false });
+			}
+		}
+
+		[HttpPost("field-assignments/{id}")]
+		[HttpPost("/envelope/field-assignments/{id}")]
+		public async Task<IActionResult> AssignFields(string id, [FromBody] FieldAssignmentRequest request) {
+			try {
+				var envelope = await _workflowService.GetRecipientsAsync(_userId, id);
+				var signerIds = new HashSet<string>();
+				foreach (var signer in envelope.Signers) {
+					signerIds.Add(signer.Id);
+				}
+
+				foreach (var assignment in request?.Assignments ?? new List<FieldAssignmentMapping>()) {
+					if (!signerIds.Contains(assignment.SignerId)) {
+						return BadRequest(new { error = "Select a valid recipient for each field.", success = false });
+					}
+				}
+
+				var store = _storeFactory.CreateEnvelopeRepository(_userId);
+				byte[] document = _txDocumentService.AssignRecipientFields(store.GetDocument(id), request?.Assignments);
+				using var stream = new MemoryStream(document);
+				store.UpdateFile(envelope, stream);
+
+				return Ok(new { success = true });
 			} catch (Exception ex) {
 				return BadRequest(new { error = ex.Message, success = false });
 			}
@@ -141,6 +191,7 @@ namespace SignFabric.Controllers {
 		public async Task<IActionResult> New([FromForm] string signingCertificateId) {
 			try {
 				string envelopeId = "";
+				const string invalidDocumentMessage = "The selected file could not be converted to a supported TX document. Please upload a valid PDF, DOCX, RTF, DOC, HTML, or TX document.";
 
 				foreach (var file in Request.Form.Files) {
 					if (!_uploadPolicy.IsAllowed(file.FileName, file.Length, out var uploadError)) {
@@ -155,7 +206,21 @@ namespace SignFabric.Controllers {
 							ms,
 							file.FileName,
 							signingCertificateId);
+
+						if (string.IsNullOrWhiteSpace(envelopeId)) {
+							return BadRequest(new {
+								error = invalidDocumentMessage,
+								success = false
+							});
+						}
 					}
+				}
+
+				if (string.IsNullOrWhiteSpace(envelopeId)) {
+					return BadRequest(new {
+						error = invalidDocumentMessage,
+						success = false
+					});
 				}
 
 				return Ok(envelopeId);

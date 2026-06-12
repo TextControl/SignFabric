@@ -24,6 +24,10 @@ namespace SignFabric.Infrastructure.Services.TextControl {
 				ms = tx.GetInternalFormat();
 			}
 
+			if (ms == null || ms.Length == 0) {
+				return null;
+			}
+
 			// new Envelope object to be stored
 			Envelope envelope = new Envelope() {
 				Created = DateTime.Now,

@@ -9,10 +9,12 @@ using SignFabric.Domain;
 using SignFabric.Presentation.ViewModels;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using TXTextControl.Web.MVC.DocumentViewer.Models;
@@ -91,7 +93,7 @@ namespace SignFabric.Application.Services {
 				signer.SignerStatus = SignerStatus.Opened;
 				store.Update(envelope.EnvelopeID, envelope);
 
-				string document = store.GetDocument(envelope.EnvelopeID);
+				string document = MergeEnvelopeAutoFillFields(store.GetDocument(envelope.EnvelopeID), envelope);
 				byte[] preparedDocument = _txService.PrepareFormFields(document, signer);
 
 				return new ExternalSigningPreparation {
@@ -265,7 +267,7 @@ namespace SignFabric.Application.Services {
 				if (envelope.Signers.All(signer => signer.SignerStatus == SignerStatus.Signed)) {
 					try {
 						string masterDocument = envelope.Signers.Count > 1
-							? store.GetDocument(envelopeId)
+							? MergeEnvelopeAutoFillFields(store.GetDocument(envelopeId), envelope)
 							: store.GetSignedDocument(envelopeId, envelope.Signers[0].Id);
 
 						var createdPDF = _txService.CreateSignedPdf(envelope, masterDocument);
@@ -325,7 +327,7 @@ namespace SignFabric.Application.Services {
 				// Get the master document (logic from ReviewController)
 				string masterDocument;
 				if (envelope.Signers.Count > 1) {
-					masterDocument = store.GetDocument(envelopeId);
+					masterDocument = MergeEnvelopeAutoFillFields(store.GetDocument(envelopeId), envelope);
 				} else {
 					masterDocument = store.GetSignedDocument(envelopeId, envelope.Signers[0].Id);
 				}
@@ -368,6 +370,49 @@ namespace SignFabric.Application.Services {
 				? exception.Message
 				: "The final signed PDF could not be created. Please review the signing certificate and signature fields, then try again.";
 			store.Update(envelope.EnvelopeID, envelope);
+		}
+
+		private string MergeEnvelopeAutoFillFields(string documentBase64, Envelope envelope) {
+			string jsonData = JsonSerializer.Serialize(BuildEnvelopeAutoFillData(envelope));
+			return Convert.ToBase64String(_txService.MergeJson(documentBase64, jsonData));
+		}
+
+		private static Dictionary<string, string> BuildEnvelopeAutoFillData(Envelope envelope) {
+			var data = new Dictionary<string, string> {
+				["current_date"] = DateTime.Now.ToString("d", CultureInfo.CurrentCulture),
+				["current_datetime"] = DateTime.Now.ToString("g", CultureInfo.CurrentCulture),
+				["document_name"] = envelope.Name ?? string.Empty,
+				["envelope_id"] = envelope.EnvelopeID ?? string.Empty,
+				["sender_name"] = envelope.Sender ?? string.Empty
+			};
+
+			if (envelope.Sent != default) {
+				data["sent_date"] = envelope.Sent.ToString("d", CultureInfo.CurrentCulture);
+			}
+
+			var primarySigner = envelope.Signers.FirstOrDefault();
+			if (primarySigner != null) {
+				data["signer_name"] = primarySigner.Name ?? string.Empty;
+				data["signer_email"] = primarySigner.Email ?? string.Empty;
+			}
+
+			foreach (var signer in envelope.Signers) {
+				var signerKey = SanitizeMergeFieldName(signer.Id);
+				data[$"signer_{signerKey}_name"] = signer.Name ?? string.Empty;
+				data[$"signer_{signerKey}_email"] = signer.Email ?? string.Empty;
+			}
+
+			return data;
+		}
+
+		private static string SanitizeMergeFieldName(string value) {
+			var builder = new StringBuilder();
+
+			foreach (char character in value ?? string.Empty) {
+				builder.Append(char.IsLetterOrDigit(character) ? character : '_');
+			}
+
+			return builder.ToString().Trim('_');
 		}
 
 		private static (string EnvelopeId, string OwnerUserId, string SignerId) DecodeSigningAccessId(string accessId) {

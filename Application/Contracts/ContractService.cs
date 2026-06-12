@@ -68,8 +68,8 @@ namespace SignFabric.Application.ContractManagement {
 
 		public async Task DeleteAsync(string contractId) {
 			await Task.Run(() => {
-				// Store.Delete might not be implemented
-				System.Diagnostics.Debug.WriteLine($"Deleting contract: {contractId}");
+				var store = _storeFactory.CreateContractRepository(_userId);
+				store.Delete(contractId);
 			});
 		}
 

@@ -9,16 +9,6 @@
     ViewData["Title"] = "Prepare the Signature";
 }
 
-<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 5">
-    <div id="liveToast" class="toast hide text-white bg-success" role="alert" aria-live="assertive" aria-atomic="true">
-        <div class="toast-header">
-            <i class="bi bi-clipboard-check" aria-hidden="true"></i>&nbsp;
-            <strong class="me-auto">Text Control eSign</strong>
-            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-        </div>
-        <div id="liveToastMessage" class="toast-body"></div>
-    </div>
-</div>
 
 <div id="editor"></div>
 
@@ -109,7 +99,7 @@
 
                         <div>
                             <div class="list-group mt-3" id="listRecipients"></div>
-                            <button id="btnConfirmRecipients" data-esign-action="confirm-recipients" class="btn btn-warning mt-3 mb-3 disabled"><strong>Next</strong></button>
+                            <button id="btnConfirmRecipients" data-esign-action="confirm-recipients" data-envelope-id="@Model.Envelope.EnvelopeID" class="btn btn-warning mt-3 mb-3 disabled"><strong>Next</strong></button>
                         </div>
                     </div>
                 </div>
@@ -159,3 +149,30 @@
     <div data-esign-init="envelope-create" data-envelope-id="@Model.Envelope.EnvelopeID"></div>
     }
 </section>
+
+@if (Model.Envelope != null) {
+    <div class="modal fade" id="fieldAssignmentModal" tabindex="-1" aria-labelledby="fieldAssignmentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content app-modal-content">
+                <div class="modal-header app-modal-header">
+                    <div class="app-modal-icon" aria-hidden="true">
+                        <i class="bi bi-person-check"></i>
+                    </div>
+                    <h5 class="modal-title" id="fieldAssignmentModalLabel">Assign Template Fields</h5>
+                    <p>Some fields from the template are not connected to a recipient yet.</p>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body app-modal-body">
+                    <div id="fieldAssignmentList" class="field-assignment-list"></div>
+                </div>
+                <div class="modal-footer app-modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-warning" data-esign-action="apply-field-assignments">
+                        <strong>Apply Assignments</strong>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+}

@@ -338,7 +338,11 @@
         }
 
         if (init === "template-details") {
-            TextControl.esign.getApplicationFields(element.dataset.templateId);
+            TextControl.esign.getApplicationFields(element.dataset.templateId, element.dataset.canRequestSignatures !== "false");
+        }
+
+        if (init === "contract-create") {
+            TextControl.esign.initializeContractPreview(element.dataset.contractId);
         }
 
         if (init === "envelope-editor") {
@@ -347,6 +351,10 @@
 
         if (init === "template-editor") {
             initTemplateEditor(element.dataset.templateId);
+        }
+
+        if (init === "contract-editor") {
+            initContractEditor(element.dataset.contractId);
         }
 
         if (init === "review-signing") {
@@ -361,6 +369,7 @@
     function requiresEditor(init) {
         return init === "envelope-editor" ||
             init === "template-editor" ||
+            init === "contract-editor" ||
             init === "collaboration";
     }
 
@@ -383,9 +392,46 @@
         });
     }
 
+    function showEditorChrome() {
+        TXTextControl.showVerticalRuler(true);
+        TXTextControl.showHorizontalRuler(true);
+        TXTextControl.showStatusBar(true);
+    }
+
+    function initSignatureFieldSidebarTracking() {
+        TXTextControl.addEventListener("signatureFieldCreated", function () {
+            TextControl.esign.checkTextFrames();
+        });
+
+        TXTextControl.addEventListener("signatureFieldDeleted", function () {
+            TextControl.esign.checkTextFrames();
+            TextControl.esign.clearActiveSignatureButton();
+        });
+
+        TXTextControl.addEventListener("signatureFieldSelected", function () {
+            TXTextControl.signatureFields.getItem(function (signatureField) {
+                if (!signatureField || typeof signatureField.getName !== "function") {
+                    TextControl.esign.clearActiveSignatureButton();
+                    return;
+                }
+
+                signatureField.getName(function (name) {
+                    TextControl.esign.highlightSignatureButton(name || null);
+                });
+            }, function () {
+                TextControl.esign.clearActiveSignatureButton();
+            });
+        });
+
+        TXTextControl.addEventListener("signatureFieldDeselected", function () {
+            TextControl.esign.clearActiveSignatureButton();
+        });
+    }
+
     function initEnvelopeEditor(envelopeId) {
         TXTextControl.addEventListener("textControlLoaded", function () {
             TextControl.esign.getDocument(envelopeId, "envelope");
+            initSignatureFieldSidebarTracking();
         });
 
         TXTextControl.addEventListener("ribbonTabsLoaded", function () {
@@ -400,13 +446,7 @@
 
             initRequiredFieldBehavior();
 
-            TXTextControl.addEventListener("textFrameDeleted", function () {
-                TextControl.esign.checkTextFrames();
-            });
-
-            TXTextControl.showVerticalRuler(false);
-            TXTextControl.showHorizontalRuler(false);
-            TXTextControl.showStatusBar(false);
+            showEditorChrome();
         });
 
         window.saveDocument = function () {
@@ -467,11 +507,73 @@
             });
 
             initRequiredFieldBehavior();
+            showEditorChrome();
         });
 
         window.saveDocument = function () {
             TXTextControl.saveDocument(32, function (document) {
                 TextControl.esign.saveTemplate(document.data, templateId);
+            });
+        };
+    }
+
+    function initContractEditor(contractId) {
+        var curField;
+
+        TXTextControl.addEventListener("textControlLoaded", function () {
+            TextControl.esign.getDocument(contractId, "contract");
+            enableTooltips();
+        });
+
+        TXTextControl.addEventListener("ribbonTabsLoaded", function () {
+            TXTextControl.addEventListener("textFieldEntered", function (ff) {
+                if (ff.textField.type !== "TEXTFORMFIELD" &&
+                    ff.textField.type !== "DATEFORMFIELD" &&
+                    ff.textField.type !== "APPLICATIONFIELD") {
+                    return;
+                }
+
+                curField = ff.textField;
+                $("#fieldProperties").removeClass("d-none");
+                $("#fieldName").val(ff.textField.name);
+                $("#fieldNameApply").off("click.esign").on("click.esign", function () {
+                    var newValue = $("#fieldName").val();
+
+                    if (curField.type === "APPLICATIONFIELD") {
+                        TXTextControl.applicationFields.getItem(function (af) {
+                            if (af === null) return;
+                            af.getParameters(function (par) {
+                                par[0] = newValue;
+                                af.setParameters(par);
+                                TextControl.esign.showToast("Field name applied.");
+                            });
+                        });
+                    }
+
+                    if (curField.type === "TEXTFORMFIELD" || curField.type === "DATEFORMFIELD") {
+                        TXTextControl.formFields.getItem(function (af) {
+                            af.setName(newValue);
+                            TextControl.esign.showToast("Field name applied.");
+                        });
+                    }
+                });
+
+                if (ff.textField.type === "TEXTFORMFIELD" || ff.textField.type === "DATEFORMFIELD") {
+                    $("#fieldRequired").removeAttr("disabled");
+                    $("#fieldRequired").prop("checked", ff.textField.id === 1);
+                }
+                else {
+                    $("#fieldRequired").attr("disabled", "disabled");
+                }
+            });
+
+            initRequiredFieldBehavior();
+            showEditorChrome();
+        });
+
+        window.saveDocument = function () {
+            TXTextControl.saveDocument(32, function (document) {
+                TextControl.esign.saveContractEditor(document.data, contractId);
             });
         };
     }
@@ -623,6 +725,7 @@
                 TXTextControl.showSideBar(TXTextControl.SideBarType.TrackChanges, 1);
 
                 TextControl.esign.showToast("Document is locked. To propose changes, click the 'Make Changes' button!");
+                showEditorChrome();
 
                 TXTextControl.trackedChanges.getCount(function (count) {
                     if (count > 0) {

@@ -97,6 +97,25 @@ namespace SignFabric.Infrastructure.Storage.LiteDb {
 			}
 		}
 
+		public void Delete(string templateId) {
+			using (var db = new LiteDatabase(ConnectionString)) {
+				var col = db.GetCollection<Template>("template");
+				var fs = db.FileStorage;
+
+				col.DeleteMany(template => template.TemplateID == templateId);
+
+				var originalPath = "$/templates/" + templateId + "/original";
+				if (fs.Exists(originalPath)) {
+					fs.Delete(originalPath);
+				}
+
+				var thumbnailPath = "$/templates/" + templateId + "/thumbnail";
+				if (fs.Exists(thumbnailPath)) {
+					fs.Delete(thumbnailPath);
+				}
+			}
+		}
+
 		public List<Template> GetTemplates(string templateId = null) {
 			
 			using (var db = new LiteDatabase(ConnectionString)) {

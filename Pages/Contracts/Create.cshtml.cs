@@ -20,6 +20,7 @@ namespace SignFabric.Pages.Contracts {
 	[Authorize(Roles = SignFabric.Application.Identity.AppRoles.EnvelopeCreators)]
 	public class CreateModel : PageModel {
 		private readonly IDocumentProcessingService _documentService;
+		private readonly IDocumentPageService _pageService;
 		private readonly IUploadPolicy _uploadPolicy;
 		private readonly string _userId;
 
@@ -29,17 +30,38 @@ namespace SignFabric.Pages.Contracts {
 		public string ErrorMessage { get; set; }
 		public string SuccessMessage { get; set; }
 		public string AcceptedFileTypes => _uploadPolicy.AcceptAttribute;
+		public Contract Contract { get; set; }
 
 		public CreateModel(
 			IDocumentProcessingService documentService,
+			IDocumentPageService pageService,
 			IUploadPolicy uploadPolicy,
 			ICurrentUserContext currentUserContext) {
 			_documentService = documentService ?? throw new ArgumentNullException(nameof(documentService));
+			_pageService = pageService ?? throw new ArgumentNullException(nameof(pageService));
 			_uploadPolicy = uploadPolicy ?? throw new ArgumentNullException(nameof(uploadPolicy));
 			_userId = currentUserContext.UserId;
 		}
 
-		public void OnGet() { }
+		public async Task<IActionResult> OnGetAsync(string id) {
+			if (string.IsNullOrWhiteSpace(id)) {
+				return Page();
+			}
+
+			try {
+				Contract = await _pageService.GetContractsAsync(_userId)
+					.ContinueWith(task => task.Result.Find(contract => contract.ContractID == id));
+
+				if (Contract == null) {
+					return NotFound();
+				}
+
+				return Page();
+			} catch (Exception ex) {
+				ErrorMessage = $"Error loading contract: {ex.Message}";
+				return Page();
+			}
+		}
 
 		public async Task<IActionResult> OnPostAsync() {
 			try {

@@ -25,7 +25,12 @@ namespace SignFabric.Infrastructure.Services.TextControl {
 		public TextControlHelpers(string document) {
 			tx = new TextViewGenerator();
 			tx.Create();
-			tx.Load(ls, Convert.FromBase64String(document));
+			try {
+				tx.Load(ls, Convert.FromBase64String(document));
+			} catch (Exception ex) {
+				tx.Dispose();
+				throw new InvalidOperationException("The selected file could not be opened as a supported document. Please upload a valid PDF, DOCX, RTF, DOC, HTML, or TX document.", ex);
+			}
 		}
 
 		public TextControlHelpers() {
@@ -39,7 +44,12 @@ namespace SignFabric.Infrastructure.Services.TextControl {
 
 		public MemoryStream GetInternalFormat() {
 			byte[] data = null;
-			tx.Save(out data, BinaryStreamType.InternalUnicodeFormat);
+			try {
+				tx.Save(out data, BinaryStreamType.InternalUnicodeFormat);
+			} catch (Exception ex) {
+				System.Diagnostics.Debug.WriteLine($"Error converting document to internal format: {ex.Message}");
+				return null;
+			}
 
 			return new MemoryStream(data);
 		}
@@ -56,6 +66,7 @@ namespace SignFabric.Infrastructure.Services.TextControl {
 		public MemoryStream MergeJson(string Json) {
 			using (TXTextControl.DocumentServer.MailMerge mm = new TXTextControl.DocumentServer.MailMerge()) {
 				mm.TextComponent = tx;
+				mm.RemoveEmptyFields = false;
 
 				mm.MergeJsonData(Json);
 
@@ -86,6 +97,124 @@ namespace SignFabric.Infrastructure.Services.TextControl {
 			}
 
 			return appFields;
+		}
+
+		public List<FieldAssignmentField> GetUnassignedRecipientFields(List<Signer> signers) {
+			var fields = new List<FieldAssignmentField>();
+			var signerIds = new HashSet<string>((signers ?? new List<Signer>()).Select(signer => signer.Id));
+			var seen = new HashSet<string>();
+			int formIndex = 1;
+
+			foreach (FormField field in tx.FormFields) {
+				string fieldName = field.Name ?? string.Empty;
+				string signerId = GetFieldSignerId(fieldName);
+
+				if (!string.IsNullOrWhiteSpace(signerId) && signerIds.Contains(signerId)) {
+					continue;
+				}
+
+				string fieldId = "form:" + fieldName;
+				if (!seen.Add(fieldId)) {
+					continue;
+				}
+
+				fields.Add(new FieldAssignmentField {
+					FieldId = fieldId,
+					Name = fieldName,
+					Label = GetFormFieldLabel(field, formIndex),
+					FieldType = "Form Field"
+				});
+
+				formIndex++;
+			}
+
+			foreach (ApplicationField field in tx.ApplicationFields) {
+				if (field.TypeName != "MERGEFIELD" || field.Parameters == null || field.Parameters.Length == 0) {
+					continue;
+				}
+
+				string fieldName = field.Parameters[0];
+				if (fieldName != "signer_name" && fieldName != "signer_email") {
+					continue;
+				}
+
+				string fieldId = "merge:" + fieldName;
+				if (!seen.Add(fieldId)) {
+					continue;
+				}
+
+				fields.Add(new FieldAssignmentField {
+					FieldId = fieldId,
+					Name = fieldName,
+					Label = fieldName == "signer_name" ? "Signer Name" : "Signer Email",
+					FieldType = "Auto-fill Data"
+				});
+			}
+
+			int signatureIndex = 1;
+			foreach (SignatureField signatureField in tx.SignatureFields) {
+				string signatureName = signatureField.Name ?? string.Empty;
+				string signerId = GetSignatureSignerId(signatureName);
+				string fieldId = "signature:" + signatureIndex;
+				signatureIndex++;
+
+				if (!string.IsNullOrWhiteSpace(signerId) && signerIds.Contains(signerId)) {
+					continue;
+				}
+
+				fields.Add(new FieldAssignmentField {
+					FieldId = fieldId,
+					Name = signatureName,
+					Label = "Signature Box " + (signatureIndex - 1),
+					FieldType = "Signature Field"
+				});
+			}
+
+			return fields;
+		}
+
+		public byte[] AssignRecipientFields(List<FieldAssignmentMapping> assignments) {
+			var assignmentMap = (assignments ?? new List<FieldAssignmentMapping>())
+				.Where(assignment => !string.IsNullOrWhiteSpace(assignment.FieldId) && !string.IsNullOrWhiteSpace(assignment.SignerId))
+				.GroupBy(assignment => assignment.FieldId)
+				.ToDictionary(group => group.Key, group => group.First().SignerId);
+
+			foreach (FormField field in tx.FormFields) {
+				string fieldName = field.Name ?? string.Empty;
+				if (!assignmentMap.TryGetValue("form:" + fieldName, out string signerId)) {
+					continue;
+				}
+
+				field.Name = signerId + ":" + GetFieldNameSuffix(fieldName);
+			}
+
+			foreach (ApplicationField field in tx.ApplicationFields) {
+				if (field.TypeName != "MERGEFIELD" || field.Parameters == null || field.Parameters.Length == 0) {
+					continue;
+				}
+
+				string fieldName = field.Parameters[0];
+				if (!assignmentMap.TryGetValue("merge:" + fieldName, out string signerId)) {
+					continue;
+				}
+
+				var parameters = field.Parameters;
+				parameters[0] = "signer_" + SanitizeMergeFieldName(signerId) + (fieldName == "signer_email" ? "_email" : "_name");
+				field.Parameters = parameters;
+			}
+
+			int signatureIndex = 1;
+			foreach (SignatureField signatureField in tx.SignatureFields) {
+				if (assignmentMap.TryGetValue("signature:" + signatureIndex, out string signerId)) {
+					signatureField.Name = "txsign_" + signerId;
+				}
+
+				signatureIndex++;
+			}
+
+			byte[] data;
+			tx.Save(out data, BinaryStreamType.InternalUnicodeFormat);
+			return data;
 		}
 
 		public List<SectionModel> GetSubTextParts() {
@@ -292,25 +421,79 @@ namespace SignFabric.Infrastructure.Services.TextControl {
 				DeleteFormFields(tx, signerId);
 		}
 
-		public bool ContainsSignatureBox(List<Signer> signers) {
-
-			int count = 0;
-
-			foreach (Signer signer in signers) { 
-
-				foreach (IFormattedText textPart in tx.TextParts) {
-					
-					foreach (FrameBase frame in textPart.Frames) {
-						if (frame is TXTextControl.SignatureField && frame.Name == "txsign_" + signer.Id) {
-							count++; continue;
-						}
-					}
-
-				}
-
+		private static string GetFieldSignerId(string fieldName) {
+			if (string.IsNullOrWhiteSpace(fieldName) || !fieldName.Contains(':')) {
+				return null;
 			}
 
-			return (count == signers.Count) ? true : false;
+			var signerId = fieldName.Split(':')[0];
+			return signerId == "undefined" || signerId == "unassigned" ? null : signerId;
+		}
+
+		private static string GetSignatureSignerId(string signatureName) {
+			if (string.IsNullOrWhiteSpace(signatureName) || !signatureName.StartsWith("txsign_")) {
+				return null;
+			}
+
+			var signerId = signatureName.Substring("txsign_".Length);
+			return signerId == "undefined" || signerId.StartsWith("unassigned") ? null : signerId;
+		}
+
+		private static string GetFieldNameSuffix(string fieldName) {
+			if (string.IsNullOrWhiteSpace(fieldName)) {
+				return Guid.NewGuid().ToString();
+			}
+
+			if (!fieldName.Contains(':')) {
+				return fieldName;
+			}
+
+			var suffix = fieldName.Substring(fieldName.IndexOf(':') + 1);
+			return string.IsNullOrWhiteSpace(suffix) ? Guid.NewGuid().ToString() : suffix;
+		}
+
+		private static string GetFormFieldLabel(FormField field, int index) {
+			if (field is CheckFormField) {
+				return "Checkbox " + index;
+			}
+
+			if (field is SelectionFormField) {
+				return "Drop-Down " + index;
+			}
+
+			if (field is DateFormField) {
+				return "Date Picker " + index;
+			}
+
+			return "Text Form Field " + index;
+		}
+
+		private static string SanitizeMergeFieldName(string value) {
+			var builder = new StringBuilder();
+
+			foreach (char character in value ?? string.Empty) {
+				builder.Append(char.IsLetterOrDigit(character) ? character : '_');
+			}
+
+			return builder.ToString().Trim('_');
+		}
+
+		public bool ContainsSignatureBox(List<Signer> signers) {
+			if (signers == null || signers.Count == 0) {
+				return true;
+			}
+
+			var requiredSignatureNames = new HashSet<string>(
+				signers.Select(signer => "txsign_" + signer.Id),
+				StringComparer.OrdinalIgnoreCase);
+
+			foreach (TXTextControl.SignatureField signatureField in tx.SignatureFields) {
+				if (!string.IsNullOrWhiteSpace(signatureField.Name)) {
+					requiredSignatureNames.Remove(signatureField.Name);
+				}
+			}
+
+			return requiredSignatureNames.Count == 0;
 		}
 
 	}

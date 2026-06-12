@@ -61,6 +61,7 @@ namespace SignFabric.Infrastructure.Storage {
 		public void Add(Template template, MemoryStream stream) => _store.Add(template, stream);
 		public void Update(string templateId, Template template) => _store.Update(templateId, template);
 		public void UpdateFile(Template template, MemoryStream stream) => _store.UpdateFile(template, stream);
+		public void Delete(string templateId) => _store.Delete(templateId);
 		public List<Template> GetTemplates(string templateId = null) => _store.GetTemplates(templateId);
 		public string GetDocument(string templateId) => _store.GetDocument(templateId);
 		public string GetThumbnail(string templateId) => _store.GetThumbnail(templateId);
@@ -77,6 +78,7 @@ namespace SignFabric.Infrastructure.Storage {
 		public void Add(Contract contract, MemoryStream stream) => _store.Add(contract, stream);
 		public void Update(string contractId, Contract contract) => _store.Update(contractId, contract);
 		public void UpdateFile(Contract contract, MemoryStream stream) => _store.UpdateFile(contract, stream);
+		public void Delete(string contractId) => _store.Delete(contractId);
 		public List<Contract> GetContracts(string contractId = null) => _store.GetContracts(contractId);
 		public string GetDocument(string contractId) => _store.GetDocument(contractId);
 		public string GetThumbnail(string contractId) => _store.GetThumbnail(contractId);

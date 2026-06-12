@@ -12,5 +12,6 @@ namespace SignFabric.Application.Services {
 		Task RenameAsync(string userId, string templateId, string documentName);
 		Task<List<FieldModel>> GetFieldsAsync(string userId, string templateId);
 		Task<string> CreateEnvelopeFromTemplateAsync(string userId, string userName, string templateId, IDictionary<string, string> fields);
+		Task<string> CreateContractFromTemplateAsync(string userId, string userName, string templateId, IDictionary<string, string> fields);
 	}
 }
