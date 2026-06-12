@@ -25,6 +25,11 @@ namespace SignFabric.Presentation.ViewModels {
 		public Template Template { get; set; }
 	}
 
+	public class ContractEditModel {
+		public string Document { get; set; }
+		public Contract Contract { get; set; }
+	}
+
 	public class SignModel {
 		public string Document { get; set; }
 		public Envelope Envelope { get; set; }

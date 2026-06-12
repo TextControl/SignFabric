@@ -14,14 +14,17 @@ namespace SignFabric.Application.Services {
 		private readonly IStoreRepositoryFactory _storeFactory;
 		private readonly ITxDocumentService _txService;
 		private readonly IEnvelopeDocumentFactory _envelopeDocumentFactory;
+		private readonly IContractWorkflowService _contractWorkflowService;
 
 		public TemplateWorkflowService(
 			IStoreRepositoryFactory storeFactory,
 			ITxDocumentService txService,
-			IEnvelopeDocumentFactory envelopeDocumentFactory) {
+			IEnvelopeDocumentFactory envelopeDocumentFactory,
+			IContractWorkflowService contractWorkflowService) {
 			_storeFactory = storeFactory ?? throw new ArgumentNullException(nameof(storeFactory));
 			_txService = txService ?? throw new ArgumentNullException(nameof(txService));
 			_envelopeDocumentFactory = envelopeDocumentFactory ?? throw new ArgumentNullException(nameof(envelopeDocumentFactory));
+			_contractWorkflowService = contractWorkflowService ?? throw new ArgumentNullException(nameof(contractWorkflowService));
 		}
 
 		public Task<NewTemplateModel> CreateAsync(string userId, MemoryStream documentStream, string fileName) =>
@@ -57,10 +60,26 @@ namespace SignFabric.Application.Services {
 			});
 		}
 
+		public async Task<string> CreateContractFromTemplateAsync(string userId, string userName, string templateId, IDictionary<string, string> fields) {
+			return await Task.Run(() => {
+				var store = _storeFactory.CreateTemplateRepository(userId);
+				var template = store.GetTemplates(templateId).First();
+				string json = "{" + string.Join(",", fields.Select(field => $"\"{field.Key}\":\"{field.Value}\"")) + "}";
+				using var data = new MemoryStream(_txService.MergeJson(store.GetDocument(templateId), json));
+				var contract = _contractWorkflowService.CreateAsync(userId, userName, data, template.Name).GetAwaiter().GetResult();
+				return contract.Contract.ContractID;
+			});
+		}
+
 		private NewTemplateModel CreateTemplateCore(string userId, MemoryStream stream, string fileName) {
 			byte[] data = stream.ToArray();
-			string image = _txService.GenerateThumbnail(Convert.ToBase64String(data));
-			stream = new MemoryStream(_txService.GetInternalFormat(Convert.ToBase64String(data)));
+			byte[] internalFormat = _txService.GetInternalFormat(Convert.ToBase64String(data));
+			if (internalFormat == null || internalFormat.Length == 0) {
+				return null;
+			}
+
+			string image = _txService.GenerateThumbnail(Convert.ToBase64String(internalFormat));
+			stream = new MemoryStream(internalFormat);
 			var template = new Template { Created = DateTime.Now, UserID = userId, Name = fileName, TemplateID = Guid.NewGuid().ToString() };
 			var store = _storeFactory.CreateTemplateRepository(userId);
 			store.Add(template, stream);

@@ -1,0 +1,113 @@
+@{
+    var accordionId = ViewData["FieldGroupsId"] as string ?? "recipientFieldGroups";
+    var showTemplateMergeFields = ViewData["ShowTemplateMergeFields"] as bool? ?? false;
+    var mergeFieldsOpen = showTemplateMergeFields;
+    var autoFillOpen = !showTemplateMergeFields;
+}
+
+<div class="editor-sidebar-accordion" id="@accordionId">
+    @if (showTemplateMergeFields) {
+        <section class="editor-sidebar-group">
+            <button class="editor-sidebar-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#templateMergeFields" aria-expanded="true" aria-controls="templateMergeFields">
+                <span>Template Merge Fields</span>
+                <i class="bi bi-chevron-down" aria-hidden="true"></i>
+            </button>
+            <p class="editor-sidebar-help">Fields completed when an envelope is created from this template.</p>
+
+            <div id="templateMergeFields" class="collapse @(mergeFieldsOpen ? "show" : null)" data-bs-parent="#@accordionId">
+                <a data-esign-action="insert-merge-field" class="list-group-item list-group-item-action toolbox-item" data-placement-hint="Merge field added at the cursor.">
+                    <span class="toolbox-item-main">
+                        <i class="bi bi-intersect" aria-hidden="true"></i>
+                        <span class="toolbox-item-label">Merge Field</span>
+                    </span>
+                    <span class="toolbox-item-action">Click to place</span>
+                </a>
+            </div>
+        </section>
+    }
+
+    <section class="editor-sidebar-group">
+        <button class="editor-sidebar-toggle @(autoFillOpen ? null : "collapsed")" type="button" data-bs-toggle="collapse" data-bs-target="#autoFillFields" aria-expanded="@(autoFillOpen.ToString().ToLowerInvariant())" aria-controls="autoFillFields">
+            <span>Auto-fill Data</span>
+            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+        </button>
+        <p class="editor-sidebar-help">Fields filled automatically when the document is prepared for signing.</p>
+
+        <div id="autoFillFields" class="collapse @(autoFillOpen ? "show" : null)" data-bs-parent="#@accordionId">
+            <a data-esign-action="insert-auto-fill-field" data-field-type="signer-name" data-field-label="Signer Name" class="list-group-item list-group-item-action toolbox-item" data-placement-hint="Signer name merge field added for the selected recipient.">
+                <span class="toolbox-item-main">
+                    <i class="bi bi-person-badge" aria-hidden="true"></i>
+                    <span class="toolbox-item-label">Signer Name</span>
+                </span>
+                <span class="toolbox-item-action">Click to place</span>
+            </a>
+            <a data-esign-action="insert-auto-fill-field" data-field-type="signer-email" data-field-label="Signer Email" class="list-group-item list-group-item-action toolbox-item" data-placement-hint="Signer email merge field added for the selected recipient.">
+                <span class="toolbox-item-main">
+                    <i class="bi bi-envelope" aria-hidden="true"></i>
+                    <span class="toolbox-item-label">Signer Email</span>
+                </span>
+                <span class="toolbox-item-action">Click to place</span>
+            </a>
+            <a data-esign-action="insert-auto-fill-field" data-field-type="current-date" data-field-label="Current Date" class="list-group-item list-group-item-action toolbox-item" data-placement-hint="Current date merge field added.">
+                <span class="toolbox-item-main">
+                    <i class="bi bi-calendar-check" aria-hidden="true"></i>
+                    <span class="toolbox-item-label">Current Date</span>
+                </span>
+                <span class="toolbox-item-action">Click to place</span>
+            </a>
+            <a data-esign-action="insert-auto-fill-field" data-field-type="sender-name" data-field-label="Sender Name" class="list-group-item list-group-item-action toolbox-item" data-placement-hint="Sender name merge field added.">
+                <span class="toolbox-item-main">
+                    <i class="bi bi-person" aria-hidden="true"></i>
+                    <span class="toolbox-item-label">Sender Name</span>
+                </span>
+                <span class="toolbox-item-action">Click to place</span>
+            </a>
+            <a data-esign-action="insert-auto-fill-field" data-field-type="document-name" data-field-label="Document Name" class="list-group-item list-group-item-action toolbox-item" data-placement-hint="Document name merge field added.">
+                <span class="toolbox-item-main">
+                    <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
+                    <span class="toolbox-item-label">Document Name</span>
+                </span>
+                <span class="toolbox-item-action">Click to place</span>
+            </a>
+        </div>
+    </section>
+
+    <section class="editor-sidebar-group">
+        <button class="editor-sidebar-toggle collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#manualFormFields" aria-expanded="false" aria-controls="manualFormFields">
+            <span>Form Fields</span>
+            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+        </button>
+        <p class="editor-sidebar-help">Fields the signer fills manually while signing.</p>
+
+        <div id="manualFormFields" class="collapse" data-bs-parent="#@accordionId">
+            <a data-esign-action="insert-text-form-field" class="list-group-item list-group-item-action toolbox-item" data-placement-hint="Text field added at the cursor for the selected recipient.">
+                <span class="toolbox-item-main">
+                    <i class="bi bi-input-cursor-text" aria-hidden="true"></i>
+                    <span class="toolbox-item-label">Text Form Field</span>
+                </span>
+                <span class="toolbox-item-action">Click to place</span>
+            </a>
+            <a data-esign-action="insert-checkbox" class="list-group-item list-group-item-action toolbox-item" data-placement-hint="Checkbox added at the cursor for the selected recipient.">
+                <span class="toolbox-item-main">
+                    <i class="bi bi-check-square" aria-hidden="true"></i>
+                    <span class="toolbox-item-label">Checkbox</span>
+                </span>
+                <span class="toolbox-item-action">Click to place</span>
+            </a>
+            <a data-esign-action="insert-dropdown" class="list-group-item list-group-item-action toolbox-item" data-placement-hint="Drop-down field added at the cursor for the selected recipient.">
+                <span class="toolbox-item-main">
+                    <i class="bi bi-menu-button-wide" aria-hidden="true"></i>
+                    <span class="toolbox-item-label">Drop-Down</span>
+                </span>
+                <span class="toolbox-item-action">Click to place</span>
+            </a>
+            <a data-esign-action="insert-date-picker" class="list-group-item list-group-item-action toolbox-item" data-placement-hint="Date picker added at the cursor for the selected recipient.">
+                <span class="toolbox-item-main">
+                    <i class="bi bi-calendar-date" aria-hidden="true"></i>
+                    <span class="toolbox-item-label">Date Picker</span>
+                </span>
+                <span class="toolbox-item-action">Click to place</span>
+            </a>
+        </div>
+    </section>
+</div>

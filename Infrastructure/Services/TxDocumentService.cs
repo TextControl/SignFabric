@@ -32,7 +32,7 @@ namespace SignFabric.Infrastructure.Services {
 		public byte[] GetInternalFormat(string base64Document) {
 			using (var tx = new TextControlHelpers(base64Document)) {
 				var ms = tx.GetInternalFormat();
-				return ms.ToArray();
+				return ms?.ToArray();
 			}
 		}
 
@@ -69,6 +69,12 @@ namespace SignFabric.Infrastructure.Services {
 			}
 		}
 
+		public List<FieldAssignmentField> GetUnassignedRecipientFields(string base64Document, List<Signer> signers) {
+			using (var tx = new TextControlHelpers(base64Document)) {
+				return tx.GetUnassignedRecipientFields(signers);
+			}
+		}
+
 		public List<SectionModel> GetSections(string base64Document) {
 			using (var tx = new TextControlHelpers(base64Document)) {
 				return tx.GetSubTextParts();
@@ -78,6 +84,12 @@ namespace SignFabric.Infrastructure.Services {
 		public byte[] PrepareFormFields(string base64Document, Signer signer) {
 			using (var tx = new TextControlHelpers(base64Document)) {
 				return tx.PrepareFormFields(signer);
+			}
+		}
+
+		public byte[] AssignRecipientFields(string base64Document, List<FieldAssignmentMapping> assignments) {
+			using (var tx = new TextControlHelpers(base64Document)) {
+				return tx.AssignRecipientFields(assignments);
 			}
 		}
 

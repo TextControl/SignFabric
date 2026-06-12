@@ -32,6 +32,7 @@ namespace SignFabric.Application.Abstractions {
 		void Add(Template template, MemoryStream stream);
 		void Update(string templateId, Template template);
 		void UpdateFile(Template template, MemoryStream stream);
+		void Delete(string templateId);
 		List<Template> GetTemplates(string templateId = null);
 		string GetDocument(string templateId);
 		string GetThumbnail(string templateId);
@@ -42,6 +43,7 @@ namespace SignFabric.Application.Abstractions {
 		void Add(Contract contract, MemoryStream stream);
 		void Update(string contractId, Contract contract);
 		void UpdateFile(Contract contract, MemoryStream stream);
+		void Delete(string contractId);
 		List<Contract> GetContracts(string contractId = null);
 		string GetDocument(string contractId);
 		string GetThumbnail(string contractId);

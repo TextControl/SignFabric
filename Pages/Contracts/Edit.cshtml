@@ -1,0 +1,19 @@
+@page "/contracts/edit/{id}"
+@model SignFabric.Pages.Contracts.EditModel
+
+@{
+    ViewData["Title"] = "Edit Contract";
+}
+
+<section id="home" class="container section">
+    <div class="row">
+        <div class="col-md-12">
+            <a href="/contracts/details/@Model.Contract?.ContractID" class="btn btn-warning mb-3"><strong>Back</strong></a>
+
+            @if (Model.Contract != null) {
+                <h2>Contract: <strong>@Model.Contract.Name</strong></h2>
+                <p class="text-muted">Edit contract content before sending it for collaboration.</p>
+            }
+        </div>
+    </div>
+</section>

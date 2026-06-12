@@ -25,6 +25,7 @@ namespace SignFabric.Controllers {
 	public class TemplateApiController : ControllerBase {
 		private readonly ITemplateWorkflowService _workflowService;
 		private readonly IEditableDocumentService _editableDocumentService;
+		private readonly IDocumentPageService _pageService;
 		private readonly IUploadPolicy _uploadPolicy;
 		private readonly UserManager<LiteDB.Identity.Models.LiteDbUser> _userManager;
 		private readonly string _userId;
@@ -32,11 +33,13 @@ namespace SignFabric.Controllers {
 		public TemplateApiController(
 			ITemplateWorkflowService workflowService,
 			IEditableDocumentService editableDocumentService,
+			IDocumentPageService pageService,
 			IUploadPolicy uploadPolicy,
 			ICurrentUserContext currentUserContext,
 			UserManager<LiteDB.Identity.Models.LiteDbUser> userManager) {
 			_workflowService = workflowService ?? throw new ArgumentNullException(nameof(workflowService));
 			_editableDocumentService = editableDocumentService ?? throw new ArgumentNullException(nameof(editableDocumentService));
+			_pageService = pageService ?? throw new ArgumentNullException(nameof(pageService));
 			_uploadPolicy = uploadPolicy ?? throw new ArgumentNullException(nameof(uploadPolicy));
 			_userManager = userManager;
 			_userId = currentUserContext.UserId;
@@ -47,6 +50,21 @@ namespace SignFabric.Controllers {
 		public async Task<IActionResult> GetDocument(string id) {
 			try {
 				return Ok(await _editableDocumentService.GetEditableDocumentAsync(_userId, "template", id));
+			} catch (Exception ex) {
+				return BadRequest(new { error = ex.Message, success = false });
+			}
+		}
+
+		[HttpGet("summary/{id}")]
+		[HttpGet("/template/summary/{id}")]
+		public async Task<IActionResult> GetSummary(string id) {
+			try {
+				var model = await _pageService.GetTemplateDetailsAsync(_userId, id);
+				return Ok(new {
+					templateId = model.Template.TemplateID,
+					name = model.Template.Name,
+					thumbnailSvg = model.ThumbnailSvg
+				});
 			} catch (Exception ex) {
 				return BadRequest(new { error = ex.Message, success = false });
 			}
@@ -96,6 +114,12 @@ namespace SignFabric.Controllers {
 					using (var ms = new MemoryStream()) {
 						file.CopyTo(ms);
 						template = await _workflowService.CreateAsync(_userId, ms, file.FileName);
+						if (template == null) {
+							return BadRequest(new {
+								error = "The selected file could not be converted to a supported TX document. Please upload a valid PDF, DOCX, RTF, DOC, HTML, or TX document.",
+								success = false
+							});
+						}
 					}
 				}
 				return Ok(template);
@@ -124,6 +148,21 @@ namespace SignFabric.Controllers {
 				}
 				string documentId = await _workflowService.CreateEnvelopeFromTemplateAsync(_userId, _userManager.GetUserName(User), id, fields);
 				return Redirect("/envelopes/create/" + documentId);
+			} catch (Exception ex) {
+				return BadRequest(new { error = ex.Message, success = false });
+			}
+		}
+
+		[HttpPost("contract/{id}")]
+		[HttpPost("/template/contract/{id}")]
+		public async Task<IActionResult> Contract(string id) {
+			try {
+				var fields = new Dictionary<string, string>();
+				foreach (string key in Request.Form.Keys) {
+					fields[key] = Request.Form[key];
+				}
+				string contractId = await _workflowService.CreateContractFromTemplateAsync(_userId, _userManager.GetUserName(User), id, fields);
+				return Redirect("/contracts/create/" + contractId);
 			} catch (Exception ex) {
 				return BadRequest(new { error = ex.Message, success = false });
 			}

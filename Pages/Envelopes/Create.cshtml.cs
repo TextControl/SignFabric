@@ -99,7 +99,27 @@ namespace SignFabric.Pages.Envelopes {
 			var document = contractStore.GetDocument(contract.ContractID);
 
 			using var stream = new MemoryStream(Convert.FromBase64String(document));
-			return _envelopeDocumentFactory.CreateEnvelopeFromDocument(_userId, User.Identity?.Name, stream, Guid.NewGuid() + ".tx");
+			var envelopeId = _envelopeDocumentFactory.CreateEnvelopeFromDocument(_userId, User.Identity?.Name, stream, Guid.NewGuid() + ".tx");
+
+			if (!string.IsNullOrWhiteSpace(envelopeId) && contract.Signer != null) {
+				var envelopeStore = _storeFactory.CreateEnvelopeRepository(_userId);
+				var envelope = envelopeStore.GetEnvelopes(envelopeId).FirstOrDefault();
+
+				if (envelope != null && !envelope.Signers.Any(signer =>
+					string.Equals(signer.Email, contract.Signer.Email, StringComparison.OrdinalIgnoreCase))) {
+					envelope.Signers.Add(new Signer {
+						Id = Guid.NewGuid().ToString(),
+						Name = contract.Signer.Name,
+						Email = contract.Signer.Email,
+						SignerStatus = SignerStatus.None
+					});
+
+					envelope.Status = EnvelopeStatus.New;
+					envelopeStore.Update(envelope.EnvelopeID, envelope);
+				}
+			}
+
+			return envelopeId;
 		}
 	}
 }

@@ -1,59 +1,58 @@
 @model SignModel
 @using TXTextControl.Web.MVC
 
-<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 5">
-    <div id="liveToast" class="toast hide text-white bg-success" role="alert" aria-live="assertive" aria-atomic="true">
-        <div class="toast-header">
-            <i class="bi bi-clipboard-check" aria-hidden="true"></i>&nbsp;
-            <strong class="me-auto">Text Control eSign</strong>
-            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-        </div>
-        <div id="liveToastMessage" class="toast-body">
-
-        </div>
-    </div>
-</div>
 
 <div class="editor-close">
-    <button data-esign-action="save-editor-document" class="btn btn-warning"><strong>Save and Close</strong></button>
+    <button data-esign-action="save-editor-document" class="btn btn-warning" title="Save the prepared document and return to the envelope workflow">
+        <strong>Done Editing</strong>
+    </button>
 </div>
 
 <div class="editor-wrapper">
-    <div class="sidebar">
+    <aside class="sidebar editor-sidebar" aria-label="Envelope field tools">
 
         <div class="list-group">
 
-            <h5>Signature Fields</h5>
+            <h5 class="editor-sidebar-title">Recipient Signature</h5>
+            <p class="editor-sidebar-help">Place the cursor where the signer should sign, then click a recipient.</p>
 
             @{
                 foreach (Signer signer in Model.Envelope.Signers) {
-                    <a id="txsign_@signer.Id" data-esign-action="insert-text-frame" data-signer-id="@signer.Id" data-signer-name="@signer.Name" class="list-group-item list-group-item-action toolbox-item toolbox-item-small">
-                        <i class="bi bi-pen-fill" aria-hidden="true"></i> @signer.Email
+                    <a id="txsign_@signer.Id" data-esign-action="insert-text-frame" data-signer-id="@signer.Id" data-signer-name="@signer.Name" class="list-group-item list-group-item-action toolbox-item toolbox-item-small toolbox-item-signature" data-placement-hint="Signature field added. Move the cursor and click another recipient to add more signatures.">
+                        <span class="toolbox-item-main">
+                            <i class="bi bi-pen-fill" aria-hidden="true"></i>
+                            <span class="toolbox-item-label">@signer.Email</span>
+                        </span>
+                        <span class="toolbox-item-action">Click to place</span>
                     </a>
                 }
             }
 
-            @*@{ if (Model.Envelope.Signers.Count == 1) {*@
-                <h5 class="mt-4">Form Fields</h5>
+            <button type="button" data-esign-action="open-signature-area-wizard" class="btn btn-outline-secondary w-100 mt-3" data-placement-hint="Signature area inserted at the cursor for the selected recipient configuration.">
+                <i class="bi bi-layout-text-window-reverse" aria-hidden="true"></i>
+                Insert Signature Area
+            </button>
+            <p class="editor-sidebar-help mt-2">Insert a structured signature block with signature, signer name, and date.</p>
 
-                <select id="formOwner" class="form-select mb-2">
+            @*@{ if (Model.Envelope.Signers.Count == 1) {*@
+                <h5 class="editor-sidebar-section-title mt-4">Recipient Fields</h5>
+                <p class="editor-sidebar-help">Choose who owns the next field, place the cursor, then click a field.</p>
+
+                <div id="fieldPlacementHint" class="field-placement-hint" role="status" aria-live="polite">
+                    Place the cursor in the document, then click a field to insert it.
+                </div>
+
+                <label for="formOwner" class="form-label editor-sidebar-label">Assign fields to</label>
+                <select id="formOwner" class="form-select mb-3">
                     @foreach (Signer signer in Model.Envelope.Signers) {
                     <option value="@signer.Id">@signer.Email</option>
                     }
                 </select>
 
-                <a data-esign-action="insert-text-form-field" class="list-group-item list-group-item-action toolbox-item ">
-                    <i class="bi bi-input-cursor-text" aria-hidden="true"></i> Text Form Field
-                </a>
-                <a data-esign-action="insert-checkbox" class="list-group-item list-group-item-action toolbox-item">
-                    <i class="bi bi-check-square" aria-hidden="true"></i> Checkbox
-                </a>
-                <a data-esign-action="insert-dropdown" class="list-group-item list-group-item-action toolbox-item">
-                    <i class="bi bi-menu-button-wide" aria-hidden="true"></i> Drop-Down
-                </a>
-                <a data-esign-action="insert-date-picker" class="list-group-item list-group-item-action toolbox-item">
-                    <i class="bi bi-calendar-date" aria-hidden="true"></i> Date Picker
-                </a>
+                @await Html.PartialAsync("~/Pages/Shared/EditorPartials/_RecipientFieldGroups.cshtml", null, new ViewDataDictionary(ViewData) {
+                    ["FieldGroupsId"] = "recipientFieldGroups",
+                    ["ShowTemplateMergeFields"] = false
+                })
 
                @*}
             }*@
@@ -67,11 +66,64 @@
             </div>
         </div>
 
-    </div>
+    </aside>
     <div class="editor-document no-tabs">
         @Html.TXTextControl().TextControl(settings => {
             settings.Dock = TXTextControl.Web.DockStyle.Fill;
         }).Render()
+    </div>
+</div>
+
+<div class="modal fade" id="signatureAreaWizardModal" tabindex="-1" aria-labelledby="signatureAreaWizardModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content app-modal-content">
+            <div class="modal-header app-modal-header">
+                <div class="app-modal-icon" aria-hidden="true">
+                    <i class="bi bi-layout-text-window-reverse"></i>
+                </div>
+                <h5 class="modal-title" id="signatureAreaWizardModalLabel">Insert Signature Area</h5>
+                <p>Create a structured signature block with signer details and one or more signature fields.</p>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body app-modal-body">
+                <div class="mb-3">
+                    <label class="form-label d-block">Recipients</label>
+                    <div id="signatureAreaSignerList" class="field-assignment-list">
+                        @foreach (var signer in Model.Envelope.Signers) {
+                            <label class="field-assignment-row mb-0">
+                                <span class="field-assignment-label">
+                                    <input class="form-check-input me-2 signature-area-signer" type="checkbox" name="signatureAreaSignerIds" value="@signer.Id" checked>
+                                    <span>
+                                        <strong>@(string.IsNullOrWhiteSpace(signer.Name) ? signer.Email : signer.Name)</strong><br />
+                                        <span class="text-muted">@signer.Email</span>
+                                    </span>
+                                </span>
+                            </label>
+                        }
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label d-block">Included fields</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="signatureAreaIncludeSignerName" checked>
+                        <label class="form-check-label" for="signatureAreaIncludeSignerName">Signer name</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="signatureAreaIncludeDate" checked>
+                        <label class="form-check-label" for="signatureAreaIncludeDate">Current date</label>
+                    </div>
+                </div>
+
+                <div class="form-text">The signature area is inserted as a table at the current cursor position.</div>
+            </div>
+            <div class="modal-footer app-modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning" data-esign-action="insert-signature-area">
+                    <strong>Insert Signature Area</strong>
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 

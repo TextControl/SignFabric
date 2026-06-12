@@ -1,22 +1,10 @@
-@page "/contracts/create"
+@page "/contracts/create/{id?}"
 @model SignFabric.Pages.Contracts.CreateModel
 
 @{
     ViewData["Title"] = "Prepare the Contract";
 }
 
-<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 5">
-    <div id="liveToast" class="toast hide text-white bg-success" role="alert" aria-live="assertive" aria-atomic="true">
-        <div class="toast-header">
-            <i class="bi bi-clipboard-check" aria-hidden="true"></i>&nbsp;
-            <strong class="me-auto">Text Control eSign</strong>
-            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-        </div>
-        <div id="liveToastMessage" class="toast-body">
-
-        </div>
-    </div>
-</div>
 
 <div id="editor"></div>
 
@@ -66,13 +54,34 @@
                             </div>
                         </div>
 
-                        <div id="contractPreviewBox">
+                        <div id="contractPreviewBox" class="template-create-preview" style="display: none;">
                             <img class="img-fluid thumbnail-image thumbnail-small" src="" id="statusDocumentThumbnail" />
                             <p class="mt-3" id="statusDocumentInfo"></p>
                         </div>
 
                     </div>
 
+                </div>
+            </div>
+
+            <div class="row d-none" id="contractNextStepRow">
+                <div class="col-md-1 offset-1 status-border">
+                    <span id="statusContractNextStep" class="status"><i class="bi bi-pencil-square" aria-hidden="true"></i></span>
+                </div>
+                <div class="col-md-8 offset-md-1 status-content">
+                    <p>
+                        <strong>Next step</strong>
+                        <br />
+                        Review the uploaded contract, edit it if needed, then continue to the recipient.
+                    </p>
+                    <div id="contractNextStepPanel">
+                        <a id="editContractButton" data-esign-action="load-contract-editor" data-contract-id="" href="#" class="btn btn-warning mb-3">
+                            <strong>Edit Contract</strong>
+                        </a>
+                        <button type="button" data-esign-action="continue-contract-recipient" class="btn btn-light mb-3">
+                            <strong>Continue to Recipient</strong>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -144,5 +153,9 @@
         </div>
 
 </section>
+
+@if (Model.Contract != null) {
+    <div data-esign-init="contract-create" data-contract-id="@Model.Contract.ContractID"></div>
+}
 
 

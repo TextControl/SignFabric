@@ -11,37 +11,207 @@
 
     <h1>Templates</h1>
 
+    @if (!string.IsNullOrWhiteSpace(Model.StatusMessage)) {
+        <div class="alert alert-info alert-dismissible fade show mt-3" role="alert">
+            @Model.StatusMessage
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
     <div class="row">
         <div class="col-12">
-            <div>
+            <form method="post" asp-page-handler="DeleteSelected" id="templateBulkDeleteForm">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mt-4 mb-3">
+                    <div class="text-muted small">
+                        <span id="selectedTemplateCount">0</span> selected
+                    </div>
+                    <button type="button"
+                            class="btn btn-danger"
+                            id="deleteSelectedTemplatesButton"
+                            data-bs-toggle="modal"
+                            data-bs-target="#deleteSelectedTemplatesModal"
+                            disabled>
+                        Delete Selected
+                    </button>
+                </div>
                 <table class="table table-hover mt-5" data-esign-table="overview" data-page-size="10">
                     <thead>
                         <tr>
+                            <th class="align-middle" scope="col" data-sortable="false">
+                                <input type="checkbox"
+                                       class="form-check-input"
+                                       id="selectAllTemplates"
+                                       aria-label="Select all templates" />
+                            </th>
                             <th class="align-middle" scope="col">Subject</th>
                             <th class="align-middle" scope="col">Created</th>
                             <th class="align-middle" scope="col" data-sortable="false"></th>
+                            <th class="align-middle" scope="col" data-sortable="false">Delete</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var template in @Model.Templates) {
                             <tr>
+                                <td class="align-middle">
+                                    <input type="checkbox"
+                                           class="form-check-input template-select-checkbox"
+                                           name="selectedTemplateIds"
+                                           value="@template.TemplateID"
+                                           aria-label="Select template @template.Name" />
+                                </td>
                                 <th class="align-middle" scope="row">
                                     <a href="/templates/details/@template.TemplateID">@template.Name</a>
                                 </th>
                                 
                                 <td class="align-middle">@template.Created</td>
                                 <td class="align-middle">
-                                    <div class="btn-group">
-                                        <a href="/templates/details/@template.TemplateID" class="btn btn-primary">Summary</a>
-
-                                    </div>
+                                    <a href="/templates/details/@template.TemplateID" class="btn btn-sm btn-primary">Summary</a>
+                                </td>
+                                <td class="align-middle">
+                                    <button type="button"
+                                            class="btn btn-sm btn-danger"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#deleteTemplateModal"
+                                            data-template-id="@template.TemplateID"
+                                            data-template-name="@template.Name">
+                                        Delete
+                                    </button>
                                 </td>
                             </tr>
                         }
                     </tbody>
                 </table>
-            </div>
+            </form>
         </div>
     </div>
 
 </section>
+
+<div class="modal fade" id="deleteTemplateModal" tabindex="-1" aria-labelledby="deleteTemplateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content app-modal-content">
+            <form method="post" asp-page-handler="Delete">
+                <div class="modal-header app-modal-header">
+                    <div class="app-modal-icon text-danger" aria-hidden="true">
+                        <i class="bi bi-trash3"></i>
+                    </div>
+                    <h5 class="modal-title" id="deleteTemplateModalLabel">Delete Template</h5>
+                    <p>
+                        This permanently removes the selected template and its stored document.
+                    </p>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body app-modal-body">
+                    <input type="hidden" id="deleteTemplateId" name="templateId" />
+                    <div class="auth-alert mb-0" role="alert">
+                        Delete <strong id="deleteTemplateName">this template</strong>?
+                    </div>
+                </div>
+                <div class="modal-footer app-modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Delete Template</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="deleteSelectedTemplatesModal" tabindex="-1" aria-labelledby="deleteSelectedTemplatesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content app-modal-content">
+            <div class="modal-header app-modal-header">
+                <div class="app-modal-icon text-danger" aria-hidden="true">
+                    <i class="bi bi-trash3"></i>
+                </div>
+                <h5 class="modal-title" id="deleteSelectedTemplatesModalLabel">Delete Templates</h5>
+                <p>
+                    This permanently removes the selected templates and their stored documents.
+                </p>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body app-modal-body">
+                <div class="auth-alert mb-0" role="alert">
+                    Delete <strong id="deleteSelectedTemplatesCount">0 templates</strong>?
+                </div>
+            </div>
+            <div class="modal-footer app-modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="templateBulkDeleteForm" class="btn btn-danger">Delete Templates</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var deleteTemplateModal = document.getElementById("deleteTemplateModal");
+            if (!deleteTemplateModal) return;
+
+            deleteTemplateModal.addEventListener("show.bs.modal", function (event) {
+                var button = event.relatedTarget;
+                if (!button) return;
+
+                document.getElementById("deleteTemplateId").value = button.getAttribute("data-template-id") || "";
+                document.getElementById("deleteTemplateName").textContent = button.getAttribute("data-template-name") || "this template";
+            });
+
+            var selectAll = document.getElementById("selectAllTemplates");
+            var checkboxes = Array.prototype.slice.call(document.querySelectorAll(".template-select-checkbox"));
+            var selectedCount = document.getElementById("selectedTemplateCount");
+            var deleteSelectedButton = document.getElementById("deleteSelectedTemplatesButton");
+            var deleteSelectedCount = document.getElementById("deleteSelectedTemplatesCount");
+            var deleteSelectedModal = document.getElementById("deleteSelectedTemplatesModal");
+
+            function updateBulkSelectionState() {
+                var checked = checkboxes.filter(function (checkbox) { return checkbox.checked; }).length;
+                var allChecked = checked > 0 && checked === checkboxes.length;
+                var someChecked = checked > 0 && checked < checkboxes.length;
+
+                if (selectedCount) {
+                    selectedCount.textContent = checked.toString();
+                }
+
+                if (deleteSelectedButton) {
+                    deleteSelectedButton.disabled = checked === 0;
+                }
+
+                if (deleteSelectedCount) {
+                    deleteSelectedCount.textContent = checked === 1 ? "1 template" : checked + " templates";
+                }
+
+                if (selectAll) {
+                    selectAll.checked = allChecked;
+                    selectAll.indeterminate = someChecked;
+                }
+            }
+
+            if (selectAll) {
+                selectAll.addEventListener("change", function () {
+                    checkboxes.forEach(function (checkbox) {
+                        checkbox.checked = selectAll.checked;
+                    });
+
+                    updateBulkSelectionState();
+                });
+            }
+
+            checkboxes.forEach(function (checkbox) {
+                checkbox.addEventListener("change", updateBulkSelectionState);
+            });
+
+            if (deleteSelectedModal) {
+                deleteSelectedModal.addEventListener("show.bs.modal", function (event) {
+                    if (deleteSelectedButton && deleteSelectedButton.disabled) {
+                        event.preventDefault();
+                        return;
+                    }
+
+                    updateBulkSelectionState();
+                });
+            }
+
+            updateBulkSelectionState();
+        }());
+    </script>
+}

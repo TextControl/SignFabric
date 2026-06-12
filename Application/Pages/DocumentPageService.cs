@@ -122,6 +122,16 @@ namespace SignFabric.Application.Services {
 			});
 		}
 
+		public Task<ContractEditModel> GetContractEditModelAsync(string userId, string contractId) {
+			return Task.Run(() => {
+				var store = _storeFactory.CreateContractRepository(userId);
+				return new ContractEditModel {
+					Document = store.GetDocument(contractId),
+					Contract = GetContract(store, contractId)
+				};
+			});
+		}
+
 		private Envelope GetEnvelope(string userId, string envelopeId) =>
 			GetEnvelope(_storeFactory.CreateEnvelopeRepository(userId), envelopeId);
 

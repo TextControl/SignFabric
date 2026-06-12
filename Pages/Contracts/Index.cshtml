@@ -11,22 +11,56 @@
 
     <h1>Contract Workflows</h1>
 
+    @if (!string.IsNullOrWhiteSpace(Model.StatusMessage)) {
+        <div class="alert alert-info alert-dismissible fade show mt-3" role="alert">
+            @Model.StatusMessage
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
     <div class="row">
         <div class="col-12">
-            <div>
+            <form method="post" asp-page-handler="DeleteSelected" id="contractBulkDeleteForm">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mt-4 mb-3">
+                    <div class="text-muted small">
+                        <span id="selectedContractCount">0</span> selected
+                    </div>
+                    <button type="button"
+                            class="btn btn-danger"
+                            id="deleteSelectedContractsButton"
+                            data-bs-toggle="modal"
+                            data-bs-target="#deleteSelectedContractsModal"
+                            disabled>
+                        Delete Selected
+                    </button>
+                </div>
                 <table class="table table-hover mt-5" data-esign-table="overview" data-page-size="10">
                     <thead>
                         <tr>
+                            <th class="align-middle" scope="col" data-sortable="false">
+                                <input type="checkbox"
+                                       class="form-check-input"
+                                       id="selectAllContracts"
+                                       aria-label="Select all contracts" />
+                            </th>
                             <th class="align-middle" scope="col">Subject</th>
                             <th class="align-middle" scope="col">Status</th>
                             <th class="align-middle" scope="col" data-sortable="false"></th>
                             <th class="align-middle" scope="col">Created</th>
                             <th class="align-middle" scope="col" data-sortable="false"></th>
+                            <th class="align-middle" scope="col" data-sortable="false">Delete</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var contract in @Model.Contracts) {
                             <tr>
+                                <td class="align-middle">
+                                    <input type="checkbox"
+                                           class="form-check-input contract-select-checkbox"
+                                           name="selectedContractIds"
+                                           value="@contract.ContractID"
+                                           aria-label="Select contract @contract.Name" />
+                                </td>
                                 <th class="align-middle" scope="row"><a href="/contracts/details/@contract.ContractID">@contract.Name</a> @if (contract.Status == ContractStatus.Changed){ <span class="badge rounded-pill bg-warning text-dark">Changed</span> }</th>
                                 <td class="align-middle">@contract.Status</td>
                                 <td class="align-middle">
@@ -42,15 +76,153 @@
                                 <td class="align-middle">
                                     <div class="btn-group">
                                         <a href="/contracts/details/@contract.ContractID" class="btn btn-primary">Summary</a>
-
                                     </div>
+                                </td>
+                                <td class="align-middle">
+                                    <button type="button"
+                                            class="btn btn-sm btn-danger"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#deleteContractModal"
+                                            data-contract-id="@contract.ContractID"
+                                            data-contract-name="@contract.Name">
+                                        Delete
+                                    </button>
                                 </td>
                             </tr>
                         }
                     </tbody>
                 </table>
-            </div>
+            </form>
         </div>
     </div>
 
 </section>
+
+<div class="modal fade" id="deleteContractModal" tabindex="-1" aria-labelledby="deleteContractModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content app-modal-content">
+            <form method="post" asp-page-handler="Delete">
+                <div class="modal-header app-modal-header">
+                    <div class="app-modal-icon text-danger" aria-hidden="true">
+                        <i class="bi bi-trash3"></i>
+                    </div>
+                    <h5 class="modal-title" id="deleteContractModalLabel">Delete Contract</h5>
+                    <p>
+                        This permanently removes the selected contract and its stored document.
+                    </p>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body app-modal-body">
+                    <input type="hidden" id="deleteContractId" name="contractId" />
+                    <div class="auth-alert mb-0" role="alert">
+                        Delete <strong id="deleteContractName">this contract</strong>?
+                    </div>
+                </div>
+                <div class="modal-footer app-modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Delete Contract</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="deleteSelectedContractsModal" tabindex="-1" aria-labelledby="deleteSelectedContractsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content app-modal-content">
+            <div class="modal-header app-modal-header">
+                <div class="app-modal-icon text-danger" aria-hidden="true">
+                    <i class="bi bi-trash3"></i>
+                </div>
+                <h5 class="modal-title" id="deleteSelectedContractsModalLabel">Delete Contracts</h5>
+                <p>
+                    This permanently removes the selected contracts and their stored documents.
+                </p>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body app-modal-body">
+                <div class="auth-alert mb-0" role="alert">
+                    Delete <strong id="deleteSelectedContractsCount">0 contracts</strong>?
+                </div>
+            </div>
+            <div class="modal-footer app-modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="contractBulkDeleteForm" class="btn btn-danger">Delete Contracts</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var deleteContractModal = document.getElementById("deleteContractModal");
+            if (!deleteContractModal) return;
+
+            deleteContractModal.addEventListener("show.bs.modal", function (event) {
+                var button = event.relatedTarget;
+                if (!button) return;
+
+                document.getElementById("deleteContractId").value = button.getAttribute("data-contract-id") || "";
+                document.getElementById("deleteContractName").textContent = button.getAttribute("data-contract-name") || "this contract";
+            });
+
+            var selectAll = document.getElementById("selectAllContracts");
+            var checkboxes = Array.prototype.slice.call(document.querySelectorAll(".contract-select-checkbox"));
+            var selectedCount = document.getElementById("selectedContractCount");
+            var deleteSelectedButton = document.getElementById("deleteSelectedContractsButton");
+            var deleteSelectedCount = document.getElementById("deleteSelectedContractsCount");
+            var deleteSelectedModal = document.getElementById("deleteSelectedContractsModal");
+
+            function updateBulkSelectionState() {
+                var checked = checkboxes.filter(function (checkbox) { return checkbox.checked; }).length;
+                var allChecked = checked > 0 && checked === checkboxes.length;
+                var someChecked = checked > 0 && checked < checkboxes.length;
+
+                if (selectedCount) {
+                    selectedCount.textContent = checked.toString();
+                }
+
+                if (deleteSelectedButton) {
+                    deleteSelectedButton.disabled = checked === 0;
+                }
+
+                if (deleteSelectedCount) {
+                    deleteSelectedCount.textContent = checked === 1 ? "1 contract" : checked + " contracts";
+                }
+
+                if (selectAll) {
+                    selectAll.checked = allChecked;
+                    selectAll.indeterminate = someChecked;
+                }
+            }
+
+            if (selectAll) {
+                selectAll.addEventListener("change", function () {
+                    checkboxes.forEach(function (checkbox) {
+                        checkbox.checked = selectAll.checked;
+                    });
+
+                    updateBulkSelectionState();
+                });
+            }
+
+            checkboxes.forEach(function (checkbox) {
+                checkbox.addEventListener("change", updateBulkSelectionState);
+            });
+
+            if (deleteSelectedModal) {
+                deleteSelectedModal.addEventListener("show.bs.modal", function (event) {
+                    if (deleteSelectedButton && deleteSelectedButton.disabled) {
+                        event.preventDefault();
+                        return;
+                    }
+
+                    updateBulkSelectionState();
+                });
+            }
+
+            updateBulkSelectionState();
+        }());
+    </script>
+}

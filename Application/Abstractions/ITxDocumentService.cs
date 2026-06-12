@@ -14,7 +14,9 @@ namespace SignFabric.Application.Abstractions {
 		(byte[] PdfData, string ThumbnailSvg) CreateSignedPdf(Envelope envelope, string masterDocument);
 		string GetDocumentAccessId(byte[] document);
 		List<FieldModel> GetMergeFields(string base64Document);
+		List<FieldAssignmentField> GetUnassignedRecipientFields(string base64Document, List<Signer> signers);
 		List<SectionModel> GetSections(string base64Document);
+		byte[] AssignRecipientFields(string base64Document, List<FieldAssignmentMapping> assignments);
 		byte[] PrepareFormFields(string base64Document, Signer signer);
 		bool HasTrackedChanges(string base64Document);
 		bool ContainsSignatureBoxes(string base64Document, List<Signer> signers);

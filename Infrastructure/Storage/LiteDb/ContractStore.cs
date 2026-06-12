@@ -100,6 +100,27 @@ namespace SignFabric.Infrastructure.Storage.LiteDb {
 			}
 		}
 
+		public void Delete(string contractId) {
+			using (var db = new LiteDatabase(ConnectionString)) {
+				var col = db.GetCollection<Contract>("contract");
+				var fs = db.FileStorage;
+
+				col.DeleteMany(x => x.ContractID == contractId);
+
+				var fileIds = new[] {
+					"$/contracts/" + contractId + "/original",
+					"$/contracts/" + contractId + "/modified",
+					"$/contracts/" + contractId + "/thumbnail"
+				};
+
+				foreach (var fileId in fileIds) {
+					if (fs.Exists(fileId)) {
+						fs.Delete(fileId);
+					}
+				}
+			}
+		}
+
 		public List<Contract> GetContracts(string contractId = null) {
 			
 			using (var db = new LiteDatabase(ConnectionString)) {

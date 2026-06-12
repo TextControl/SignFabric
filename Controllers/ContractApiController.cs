@@ -24,6 +24,7 @@ namespace SignFabric.Controllers {
 	public class ContractApiController : ControllerBase {
 		private readonly IContractWorkflowService _workflowService;
 		private readonly IEditableDocumentService _editableDocumentService;
+		private readonly IDocumentPageService _pageService;
 		private readonly IUploadPolicy _uploadPolicy;
 		private readonly UserManager<LiteDB.Identity.Models.LiteDbUser> _userManager;
 		private readonly string _userId;
@@ -31,11 +32,13 @@ namespace SignFabric.Controllers {
 		public ContractApiController(
 			IContractWorkflowService workflowService,
 			IEditableDocumentService editableDocumentService,
+			IDocumentPageService pageService,
 			IUploadPolicy uploadPolicy,
 			ICurrentUserContext currentUserContext,
 			UserManager<LiteDB.Identity.Models.LiteDbUser> userManager) {
 			_workflowService = workflowService ?? throw new ArgumentNullException(nameof(workflowService));
 			_editableDocumentService = editableDocumentService ?? throw new ArgumentNullException(nameof(editableDocumentService));
+			_pageService = pageService ?? throw new ArgumentNullException(nameof(pageService));
 			_uploadPolicy = uploadPolicy ?? throw new ArgumentNullException(nameof(uploadPolicy));
 			_userManager = userManager;
 			_userId = currentUserContext.UserId;
@@ -46,6 +49,21 @@ namespace SignFabric.Controllers {
 		public async Task<IActionResult> GetDocument(string id) {
 			try {
 				return Ok(await _editableDocumentService.GetEditableDocumentAsync(_userId, "contract", id));
+			} catch (Exception ex) {
+				return BadRequest(new { error = ex.Message, success = false });
+			}
+		}
+
+		[HttpGet("summary/{id}")]
+		[HttpGet("/contract/summary/{id}")]
+		public async Task<IActionResult> GetSummary(string id) {
+			try {
+				var model = await _pageService.GetContractDetailsAsync(_userId, id);
+				return Ok(new {
+					contractId = model.Contract.ContractID,
+					name = model.Contract.Name,
+					thumbnailSvg = model.ThumbnailSvg
+				});
 			} catch (Exception ex) {
 				return BadRequest(new { error = ex.Message, success = false });
 			}

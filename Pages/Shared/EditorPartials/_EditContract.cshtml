@@ -1,14 +1,14 @@
-@model TemplateEditModel
+@model ContractEditModel
 @using TXTextControl.Web.MVC
 
 <div class="editor-close">
-    <button data-esign-action="save-editor-document" class="btn btn-warning" title="Save the template and return to the template details">
+    <button data-esign-action="save-editor-document" class="btn btn-warning" title="Save the contract and return to the workflow">
         <strong>Done Editing</strong>
     </button>
 </div>
 
 <div class="editor-wrapper">
-    <aside class="sidebar editor-sidebar" aria-label="Template field tools">
+    <aside class="sidebar editor-sidebar" aria-label="Contract field tools">
 
         <div class="list-group">
 
@@ -31,7 +31,7 @@
             </div>
 
             @await Html.PartialAsync("~/Pages/Shared/EditorPartials/_RecipientFieldGroups.cshtml", null, new ViewDataDictionary(ViewData) {
-                ["FieldGroupsId"] = "templateFieldGroups",
+                ["FieldGroupsId"] = "contractFieldGroups",
                 ["ShowTemplateMergeFields"] = true
             })
         </div>
@@ -60,5 +60,4 @@
     </div>
 </div>
 
-<div data-esign-init="template-editor" data-template-id="@Model.Template.TemplateID"></div>
-
+<div data-esign-init="contract-editor" data-contract-id="@Model.Contract.ContractID"></div>
