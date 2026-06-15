@@ -1,115 +1,342 @@
-@model Envelope
+@model EnvelopeAuditTrailView
+
+@{
+    var envelope = Model.Envelope;
+    var certificate = envelope.SigningCertificate;
+    var validationId = !string.IsNullOrWhiteSpace(envelope.ValidationId)
+        ? envelope.ValidationId
+        : Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes(envelope.EnvelopeID + ":" + envelope.UserID));
+}
 
 <div class="row mt-5">
-
-    <div class="col-md-8">
-
-        <h2 class="mb-4">Document Audit Trail <i class="bi bi-shield-check text-success" aria-hidden="true"></i></h2>
-
-        <div class="audit-trail-card">
-            <div class="audit-trail-card-header">
-                <i class="bi bi-clipboard-check-fill text-alignment" aria-hidden="true"></i> Envelope Information
+    <div class="col-12">
+        <div class="audit-trail-heading">
+            <div>
+                <h2>Document Audit Trail <i class="bi bi-shield-check text-success" aria-hidden="true"></i></h2>
+                <p>Certificate-style evidence for envelope creation, delivery, signing, document integrity, and validation.</p>
             </div>
-            <div class="audit-trail-card-body">
-                <h5 class="audit-trail-card-title">Created</h5>
-                <p>
-                    By: @Model.Sender<br />
-                    Date: @Model.Created
-                </p>
+            <span class="badge rounded-pill bg-success">Completed</span>
+        </div>
+
+        <div class="audit-trail-grid">
+            <div class="audit-trail-card">
+                <div class="audit-trail-card-header">
+                    <i class="bi bi-clipboard-check-fill text-alignment" aria-hidden="true"></i> Envelope
+                </div>
+                <dl class="audit-evidence-list">
+                    <div>
+                        <dt>Envelope ID</dt>
+                        <dd class="audit-code">@envelope.EnvelopeID</dd>
+                    </div>
+                    <div>
+                        <dt>Document</dt>
+                        <dd>@envelope.Name</dd>
+                    </div>
+                    <div>
+                        <dt>Sender</dt>
+                        <dd>@envelope.Sender</dd>
+                    </div>
+                    <div>
+                        <dt>Created</dt>
+                        <dd>@FormatDate(envelope.Created)</dd>
+                    </div>
+                    <div>
+                        <dt>Sent</dt>
+                        <dd>@FormatDate(envelope.Sent)</dd>
+                    </div>
+                    <div>
+                        <dt>Finalized</dt>
+                        <dd>@(envelope.FinalizedAt.HasValue ? FormatUtc(envelope.FinalizedAt.Value) : "Not recorded")</dd>
+                    </div>
+                    <div>
+                        <dt>Certificate subject</dt>
+                        <dd>@ValueOrMissing(certificate?.Subject)</dd>
+                    </div>
+                    <div>
+                        <dt>Certificate issuer</dt>
+                        <dd>@ValueOrMissing(certificate?.Issuer)</dd>
+                    </div>
+                    <div>
+                        <dt>Certificate thumbprint</dt>
+                        <dd class="audit-code">@ValueOrMissing(certificate?.Thumbprint)</dd>
+                    </div>
+                    <div>
+                        <dt>Certificate validity</dt>
+                        <dd>@FormatCertificateValidity(certificate)</dd>
+                    </div>
+                    <div>
+                        <dt>Certificate provider</dt>
+                        <dd>@ValueOrMissing(certificate?.Provider)</dd>
+                    </div>
+                    <div>
+                        <dt>Certificate record ID</dt>
+                        <dd class="audit-code">@ValueOrMissing(certificate?.RecordId ?? envelope.SigningCertificateId)</dd>
+                    </div>
+                    <div>
+                        <dt>Evidence captured</dt>
+                        <dd>@FormatDate(certificate?.CapturedAt ?? default)</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="audit-trail-card audit-trail-card-success">
+                <div class="audit-trail-card-header">
+                    <i class="bi bi-file-earmark-lock2-fill text-alignment" aria-hidden="true"></i> Document Integrity
+                </div>
+                <dl class="audit-evidence-list">
+                    <div>
+                        <dt>Validation ID</dt>
+                        <dd class="audit-code">@validationId</dd>
+                    </div>
+                    <div>
+                        <dt>Final PDF SHA-256</dt>
+                        <dd class="audit-code">@ValueOrMissing(envelope.FinalDocumentHashSha256)</dd>
+                    </div>
+                    <div>
+                        <dt>Final PDF MD5</dt>
+                        <dd class="audit-code">@ValueOrMissing(envelope.FinalDocumentHashMD5)</dd>
+                    </div>
+                    <div>
+                        <dt>Original document SHA-256</dt>
+                        <dd class="audit-code">@ValueOrMissing(envelope.OriginalDocumentHashSha256)</dd>
+                    </div>
+                    <div>
+                        <dt>Final PDF size</dt>
+                        <dd>@(envelope.FinalDocumentSizeBytes.HasValue ? FormatBytes(envelope.FinalDocumentSizeBytes.Value) : "Not recorded")</dd>
+                    </div>
+                    <div>
+                        <dt>Validation method</dt>
+                        <dd>Embedded validation ID + final PDF SHA-256 hash comparison</dd>
+                    </div>
+                </dl>
             </div>
         </div>
 
-        @if (Model.Status >= EnvelopeStatus.Sent) {
-            <div class="audit-trail-card">
-                <div class="audit-trail-card-header">
-                    <i class="bi bi-send-fill text-alignment" aria-hidden="true"></i> Envelope Distribution
-                </div>
-                <div class="audit-trail-card-body">
-                    <h5 class="audit-trail-card-title">Sent</h5>
-                    <p>
-                        @Model.Sent
-                    </p>
-                    <h5 class="audit-trail-card-title">Recipients</h5>
-
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th scope="col">Signer Name</th>
-                                <th scope="col">E-Mail</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (Signer signer in Model.Signers) {
-                                <tr class="@(signer.SignerStatus == SignerStatus.Signed ? "table-success" : "table-primary")">
-                                    <td>@signer.Name</td>
-                                    <td>@signer.Email</td>
-                                </tr>
-                                <tr>
-                                    <td colspan="2">
-                                        <table class="table">
-                                            <thead>
-                                                <tr>
-                                                    <th scope="col">Status</th>
-                                                    <th scope="col">Time Stamp</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                @foreach (StatusChanged statusChanged in signer.StatusChanged) {
-                                                    <tr>
-                                                        <td>@statusChanged.SignerStatus</td>
-                                                        <td>@statusChanged.TimeStamp</td>
-                                                    </tr>
-                                                }
-                                            </tbody>
-                                        </table>
-                                    </td>
-                                </tr>
-
-                            }
-                        </tbody>
-                    </table>
-                </div>
+        <div class="audit-trail-card mt-3">
+            <div class="audit-trail-card-header">
+                <i class="bi bi-send-fill text-alignment" aria-hidden="true"></i> Recipient Timeline
             </div>
-        }
-
-        @if (Model.Status == EnvelopeStatus.Signed) {
-            <div class="audit-trail-card">
-                <div class="audit-trail-card-header">
-                    <i class="bi bi-pen-fill text-alignment" aria-hidden="true"></i> Signature
-                </div>
-                <div class="audit-trail-card-body">
-                    <h5 class="audit-trail-card-title">Fully Signed</h5>
-                    <table class="table">
-                        <thead>
+            <div class="table-responsive">
+                <table class="table audit-table align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col">Recipient</th>
+                            <th scope="col">E-Mail</th>
+                            <th scope="col">Authentication</th>
+                            <th scope="col">Current Status</th>
+                            <th scope="col">Recorded Events</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var signer in envelope.Signers) {
                             <tr>
-                                <th scope="col">Signer</th>
-                                <th scope="col">E-Mail</th>
-                                <th scope="col">IP Address</th>
-                                <th scope="col">Time of Signature</th>
-                                <th scope="col">Number of Pages</th>
+                                <td>@signer.Name</td>
+                                <td>@signer.Email</td>
+                                <td>@GetSignerAuthentication(signer)</td>
+                                <td><span class="badge rounded-pill @GetSignerStatusBadgeClass(signer.SignerStatus)">@signer.SignerStatus</span></td>
+                                <td>
+                                    <ol class="audit-event-list">
+                                        @foreach (var statusChanged in signer.StatusChanged.OrderBy(item => item.TimeStamp)) {
+                                            <li>
+                                                <strong>@statusChanged.SignerStatus</strong>
+                                                <span>@FormatDate(statusChanged.TimeStamp)</span>
+                                            </li>
+                                        }
+                                    </ol>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (Signer signer in Model.Signers) {
-                                <tr>
-                                    <td>@signer.Name</td>
-                                    <td>@signer.Email</td>
-                                    <td>@signer.SignatureInformation.IPAddress</td>
-                                    <td>@signer.SignatureInformation.TimeStamp</td>
-                                    <td>@signer.SignatureInformation.NumPages</td>
-                                </tr>
-                            }
-
-
-                        </tbody>
-                    </table>
-                </div>
+                        }
+                    </tbody>
+                </table>
             </div>
-        }
+        </div>
 
+        <div class="audit-trail-card mt-3">
+            <div class="audit-trail-card-header">
+                <i class="bi bi-pen-fill text-alignment" aria-hidden="true"></i> Signature Evidence
+            </div>
+
+            @foreach (var signer in envelope.Signers.Where(item => item.SignatureInformation != null)) {
+                var signature = signer.SignatureInformation;
+                <section class="audit-signer-section">
+                    <div class="audit-signer-header">
+                        <div>
+                            <h3>@signer.Name</h3>
+                            <p>@signer.Email</p>
+                        </div>
+                        <span class="badge rounded-pill bg-success">@signature.SignatureMethod</span>
+                    </div>
+
+                    <dl class="audit-evidence-list audit-evidence-list-wide">
+                        <div>
+                            <dt>Signer name captured</dt>
+                            <dd>@signature.SignerName</dd>
+                        </div>
+                        <div>
+                            <dt>Signer initials</dt>
+                            <dd>@ValueOrMissing(signature.SignerInitials)</dd>
+                        </div>
+                        <div>
+                            <dt>Authentication</dt>
+                            <dd>@GetSignerAuthentication(signer)</dd>
+                        </div>
+                        <div>
+                            <dt>Signature timestamp</dt>
+                            <dd>@FormatDate(signature.TimeStamp)</dd>
+                        </div>
+                        <div>
+                            <dt>IP address</dt>
+                            <dd>@ValueOrMissing(signature.IPAddress)</dd>
+                        </div>
+                        <div>
+                            <dt>User agent</dt>
+                            <dd class="audit-code">@ValueOrMissing(signature.UserAgent)</dd>
+                        </div>
+                        <div>
+                            <dt>Signature box</dt>
+                            <dd class="audit-code">@ValueOrMissing(signature.SignatureBoxName)</dd>
+                        </div>
+                        <div>
+                            <dt>Signed document SHA-256</dt>
+                            <dd class="audit-code">@ValueOrMissing(signature.DocumentHashSha256)</dd>
+                        </div>
+                        <div>
+                            <dt>Signature image SHA-256</dt>
+                            <dd class="audit-code">@ValueOrMissing(signature.SignatureImageHashSha256)</dd>
+                        </div>
+                        <div>
+                            <dt>Pages at signing</dt>
+                            <dd>@signature.NumPages</dd>
+                        </div>
+                        <div>
+                            <dt>Coordinate capture</dt>
+                            <dd>@signature.SignatureLineCount lines / @signature.SignaturePointCount points</dd>
+                        </div>
+                    </dl>
+
+                    <details class="audit-coordinate-details">
+                        <summary>Signature coordinate data</summary>
+                        @if (signature.SignatureLineCount == 0) {
+                            <p class="text-muted mb-0">No coordinate data was provided for this signature.</p>
+                        }
+                        else {
+                            <div class="table-responsive">
+                                <table class="table audit-table audit-coordinate-table">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Line</th>
+                                            <th scope="col">Points</th>
+                                            <th scope="col">Bounds</th>
+                                            <th scope="col">First point</th>
+                                            <th scope="col">Last point</th>
+                                            <th scope="col">Coordinates</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var line in signature.SignatureLines) {
+                                            <tr>
+                                                <td>@line.Index</td>
+                                                <td>@(line.Points?.Count ?? 0)</td>
+                                                <td class="audit-code">@GetBounds(line)</td>
+                                                <td>@FormatPointTime(line.Points?.FirstOrDefault())</td>
+                                                <td>@FormatPointTime(line.Points?.LastOrDefault())</td>
+                                                <td><code>@FormatCoordinates(line)</code></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </details>
+                </section>
+            }
+        </div>
     </div>
-
 </div>
 
+@functions {
+    private static string FormatDate(DateTime value) =>
+        value == default ? "Not recorded" : value.ToString("yyyy-MM-dd HH:mm:ss");
 
+    private static string FormatUtc(DateTime value) =>
+        value == default ? "Not recorded" : value.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss 'UTC'");
 
+    private static string ValueOrMissing(string value) =>
+        string.IsNullOrWhiteSpace(value) ? "Not recorded" : value;
+
+    private static string FormatCertificateValidity(SigningCertificateEvidence certificate) {
+        if (certificate == null) {
+            return "Not recorded";
+        }
+
+        return $"{ValueOrMissing(certificate.NotBefore)} - {ValueOrMissing(certificate.NotAfter)}";
+    }
+
+    private static string FormatBytes(long bytes) {
+        if (bytes < 1024) {
+            return bytes + " bytes";
+        }
+
+        if (bytes < 1024 * 1024) {
+            return (bytes / 1024d).ToString("0.##") + " KB";
+        }
+
+        return (bytes / 1024d / 1024d).ToString("0.##") + " MB";
+    }
+
+    private static string GetSignerStatusBadgeClass(SignerStatus status) {
+        return status switch {
+            SignerStatus.Signed => "bg-success",
+            SignerStatus.Opened => "bg-info text-dark",
+            SignerStatus.Received => "bg-warning text-dark",
+            _ => "bg-primary"
+        };
+    }
+
+    private static string GetSignerAuthentication(Signer signer) {
+        if (signer == null) {
+            return "Not recorded";
+        }
+
+        if (signer.AuthenticationMethod == SignerAuthenticationMethod.SignerAccount) {
+            return signer.EmailOtpVerifiedAt.HasValue
+                ? $"Signer account ({FormatUtc(signer.EmailOtpVerifiedAt.Value)})"
+                : "Signer account";
+        }
+
+        if (signer.RequireEmailOtp || signer.AuthenticationMethod == SignerAuthenticationMethod.EmailOtp) {
+            return signer.EmailOtpVerifiedAt.HasValue
+                ? $"E-mail OTP ({FormatUtc(signer.EmailOtpVerifiedAt.Value)})"
+                : "E-mail OTP required";
+        }
+
+        return "E-mail link";
+    }
+
+    private static string GetBounds(SignatureStroke line) {
+        var points = line.Points ?? new List<SignaturePointModel>();
+        if (points.Count == 0) {
+            return "No points";
+        }
+
+        return $"x {points.Min(point => point.X)}-{points.Max(point => point.X)}, y {points.Min(point => point.Y)}-{points.Max(point => point.Y)}";
+    }
+
+    private static string FormatPointTime(SignaturePointModel point) {
+        if (point == null) {
+            return "Not recorded";
+        }
+
+        return point.CreatedAtUtc.HasValue
+            ? point.CreatedAtUtc.Value.ToString("HH:mm:ss.fff 'UTC'")
+            : point.CreationTimeStamp.ToString();
+    }
+
+    private static string FormatCoordinates(SignatureStroke line) {
+        if (line.Points == null || line.Points.Count == 0) {
+            return "No points";
+        }
+
+        return string.Join("; ", line.Points.Select((point, index) => $"P{index + 1}({point.X},{point.Y},{point.CreationTimeStamp})"));
+    }
+}

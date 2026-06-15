@@ -25,7 +25,7 @@ namespace SignFabric.Controllers {
 
 		/// <summary>POST /review/SignDocumentFinal - Complete signature process (called by TXTextControl DocumentViewer)</summary>
 		[HttpPost("/review/SignDocumentFinal")]
-		public async Task<IActionResult> SignDocumentFinal([FromBody] SignatureData data, string userID, string envelopeId, string signerId) {
+		public async Task<IActionResult> SignDocumentFinal([FromBody] SignatureData data, string userID, string envelopeId, string signerId, string signerUserAgent) {
 			try {
 				if (data?.SignedDocument == null) {
 					return BadRequest(new {
@@ -34,12 +34,20 @@ namespace SignFabric.Controllers {
 					});
 				}
 
+				var userAgent = Request.Headers.TryGetValue("User-Agent", out var userAgentValues)
+					? userAgentValues.ToString()
+					: string.Empty;
+				if (string.IsNullOrWhiteSpace(userAgent)) {
+					userAgent = signerUserAgent;
+				}
+
 				await _signingWorkflowService.CompleteDocumentViewerSigningAsync(
 					data,
 					userID,
 					envelopeId,
 					signerId,
-					Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown");
+					Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+					userAgent);
 
 				return Ok(true);
 			} catch (Exception ex) {

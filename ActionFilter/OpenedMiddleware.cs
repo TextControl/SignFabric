@@ -31,7 +31,7 @@ namespace SignFabric.ActionFilter {
 
 		private void TrackOpenedEnvelope(string openedId, IStoreRepositoryFactory storeFactory) {
 			try {
-				byte[] octets = Convert.FromBase64String(openedId);
+				byte[] octets = Convert.FromBase64String(NormalizeBase64(openedId));
 				var structureFolder = System.Text.Encoding.ASCII.GetString(octets).Split(':');
 
 				if (structureFolder.Length < 3 ||
@@ -65,6 +65,11 @@ namespace SignFabric.ActionFilter {
 			} catch (Exception ex) {
 				_logger.LogError(ex, "Failed to process opened tracking value.");
 			}
+		}
+
+		private static string NormalizeBase64(string value) {
+			var normalized = (value ?? string.Empty).Trim().Replace(' ', '+').Replace('-', '+').Replace('_', '/');
+			return normalized.PadRight(normalized.Length + ((4 - normalized.Length % 4) % 4), '=');
 		}
 	}
 }

@@ -1,3 +1,4 @@
+using SignFabric.Application.Abstractions;
 using SignFabric.Application.Contracts;
 using SignFabric.Domain;
 using SignFabric.Presentation.ViewModels;
@@ -26,6 +27,10 @@ namespace SignFabric.Application.Services {
 		public Envelope Envelope { get; set; }
 		public string ThumbnailSvg { get; set; }
 		public Dictionary<string, string> SignatureImages { get; set; } = new Dictionary<string, string>();
+	}
+
+	public class EnvelopeAuditTrailView {
+		public Envelope Envelope { get; set; }
 	}
 
 	public class TemplateDetailsView {

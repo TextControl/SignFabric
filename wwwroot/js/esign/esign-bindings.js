@@ -75,6 +75,10 @@
                 TextControl.esign.insertTextFrame(element.dataset.signerId, element.dataset.signerName);
                 updatePlacementHint(element);
                 break;
+            case "assign-selected-signature-field":
+                TextControl.esign.assignSelectedSignatureField(element.dataset.signerId);
+                updatePlacementHint(element);
+                break;
             case "insert-text-form-field":
                 TextControl.esign.insertTextFormField();
                 updatePlacementHint(element);

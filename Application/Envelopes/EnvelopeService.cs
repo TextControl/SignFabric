@@ -98,7 +98,11 @@ namespace SignFabric.Application.Envelopes {
 
 				foreach (var signer in envelope.Signers) {
 					signer.SignerStatus = SignerStatus.Sent;
-					var signingUrl = $"/review/sign?id={envelopeId}:{_userId}:{signer.Id}";
+					var accessId = Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes(envelopeId + ":" + _userId + ":" + signer.Id))
+						.TrimEnd('=')
+						.Replace('+', '-')
+						.Replace('/', '_');
+					var signingUrl = $"/review/sign?id={Uri.EscapeDataString(accessId)}";
 					await _emailSender.SendSigningInvitationAsync(envelope, signer, signingUrl);
 				}
 

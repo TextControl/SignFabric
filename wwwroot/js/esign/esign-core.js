@@ -421,12 +421,45 @@
             });
         },
 
+        assignSelectedSignatureField: function (id) {
+            if (!id) {
+                TextControl.esign.showToast("Select a recipient before assigning the signature field.", "warning");
+                return;
+            }
+
+            TXTextControl.signatureFields.getItem(function (signatureField) {
+                if (!signatureField || typeof signatureField.setName !== "function") {
+                    TextControl.esign.showToast("Select a signature field in the document first.", "warning");
+                    return;
+                }
+
+                var completed = false;
+                function finishAssignment() {
+                    if (completed) {
+                        return;
+                    }
+
+                    completed = true;
+                    TextControl.esign.checkTextFrames();
+                    TextControl.esign.highlightSignatureButton("txsign_" + id);
+                }
+
+                signatureField.setName("txsign_" + id, finishAssignment);
+                window.setTimeout(finishAssignment, 0);
+            }, function () {
+                TextControl.esign.showToast("Select a signature field in the document first.", "warning");
+            });
+        },
+
         checkTextFrames: function () {
             $(".toolbox-item-small").removeClass("checked");
 
             TXTextControl.signatureFields.forEach(function (signatureField) {
                 signatureField.getName(function (name) {
-                    $("#" + name).addClass("checked");
+                    var button = document.getElementById(name);
+                    if (button) {
+                        button.classList.add("checked");
+                    }
                 });
             });
 
@@ -443,7 +476,10 @@
                 return;
             }
 
-            $("#" + name).addClass("active-signature");
+            var button = document.getElementById(name);
+            if (button) {
+                button.classList.add("active-signature");
+            }
         },
 
         insertTextFormField: function () {
@@ -674,7 +710,8 @@
             $("#reviewRecipient").empty();
 
             currentEnvelope.signers.forEach(function (signer) {
-                $("#reviewRecipient").append("<li>" + signer.email + "</li>")
+                var authentication = signer.requireEmailOtp ? " - e-mail OTP required" : "";
+                $("#reviewRecipient").append("<li>" + signer.email + authentication + "</li>")
             });
 
         },
@@ -747,8 +784,10 @@
                     else {
                         var name = $("#signerName").val();
                         var email = $("#signerEmail").val();
+                        var requireEmailOtpInput = document.getElementById("requireEmailOtp");
+                        var requireEmailOtp = !!(requireEmailOtpInput && requireEmailOtpInput.checked);
 
-                        var data = { "name": name, "email": email };
+                        var data = { "name": name, "email": email, "requireEmailOtp": requireEmailOtp };
 
                         postJson(url, data, false)
                             .then(function (envelope) {
@@ -762,6 +801,7 @@
 
                                     $("#signerName").val("");
                                     $("#signerEmail").val("");
+                                    $("#requireEmailOtp").prop("checked", false);
                                 }
                                 else if (type === "contract") {
                                     $("#statusRecipient").addClass("status-check");
@@ -1429,7 +1469,10 @@
         $("#listRecipients").empty();
 
         recipients.forEach(function (signer) {
-            $("#listRecipients").append("<div class=\"list-group-item list-group-item-action\" aria-current=\"true\"><div class=\"d-flex w-100 justify-content-between\" ><h5 class=\"mb-1\">" + signer.name + "</h5><a class=\"btn btn-sm btn-outline-danger\" onclick=\"TextControl.esign.removeRecipient('" + envelopeId + "','" + type + "','" + signer.email + "','" + signer.name + "');\">Remove</a></div ><p class=\"mb-1\">" + signer.email + "</p></div >");
+            var authBadge = signer.requireEmailOtp
+                ? "<span class=\"badge rounded-pill recipient-auth-badge\"><i class=\"bi bi-envelope-check\" aria-hidden=\"true\"></i> E-mail OTP</span>"
+                : "";
+            $("#listRecipients").append("<div class=\"list-group-item list-group-item-action\" aria-current=\"true\"><div class=\"d-flex w-100 justify-content-between gap-2\" ><h5 class=\"mb-1\">" + signer.name + "</h5><a class=\"btn btn-sm btn-outline-danger\" onclick=\"TextControl.esign.removeRecipient('" + envelopeId + "','" + type + "','" + signer.email + "','" + signer.name + "');\">Remove</a></div ><p class=\"mb-1\">" + signer.email + "</p>" + authBadge + "</div >");
         });
 
         if (recipients.length != 0) {

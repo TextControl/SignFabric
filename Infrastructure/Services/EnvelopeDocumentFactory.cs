@@ -1,9 +1,11 @@
 using SignFabric.Application.Abstractions;
+using SignFabric.Domain;
 using SignFabric.Infrastructure.Configuration;
 using SignFabric.Infrastructure.Services.TextControl;
 using SignFabric.Infrastructure.Storage.LiteDb;
 using System;
 using System.IO;
+using System.Linq;
 
 namespace SignFabric.Infrastructure.Services {
 	public class EnvelopeDocumentFactory : IEnvelopeDocumentFactory {
@@ -34,7 +36,31 @@ namespace SignFabric.Infrastructure.Services {
 				throw new InvalidOperationException("The selected signing certificate is not available.");
 			}
 
-			return EnvelopeDocument.ProcessNewDocument(documentStream, fileName, new EnvelopeStore(userId, _paths), userName, userId, resolvedCertificateId);
+			var certificateEvidence = CreateCertificateEvidence(resolvedCertificateId);
+			return EnvelopeDocument.ProcessNewDocument(documentStream, fileName, new EnvelopeStore(userId, _paths), userName, userId, resolvedCertificateId, certificateEvidence);
+		}
+
+		private SigningCertificateEvidence CreateCertificateEvidence(string certificateId) {
+			var certificates = _certificateManagementService.GetCertificatesAsync().GetAwaiter().GetResult();
+			var certificate = certificates.FirstOrDefault(item => string.Equals(item.Id, certificateId, StringComparison.OrdinalIgnoreCase)) ??
+				certificates.FirstOrDefault(item => item.IsActive);
+
+			if (certificate == null) {
+				return null;
+			}
+
+			var configuration = _certificateManagementService.GetConfigurationAsync().GetAwaiter().GetResult();
+			return new SigningCertificateEvidence {
+				RecordId = certificate.Id,
+				DisplayName = certificate.DisplayName,
+				Thumbprint = certificate.Thumbprint,
+				Subject = certificate.Subject,
+				Issuer = certificate.Issuer,
+				NotBefore = certificate.NotBefore,
+				NotAfter = certificate.NotAfter,
+				Provider = configuration.Provider,
+				CapturedAt = DateTime.UtcNow
+			};
 		}
 	}
 }

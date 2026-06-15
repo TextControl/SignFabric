@@ -18,13 +18,29 @@
 
             @{
                 foreach (Signer signer in Model.Envelope.Signers) {
-                    <a id="txsign_@signer.Id" data-esign-action="insert-text-frame" data-signer-id="@signer.Id" data-signer-name="@signer.Name" class="list-group-item list-group-item-action toolbox-item toolbox-item-small toolbox-item-signature" data-placement-hint="Signature field added. Move the cursor and click another recipient to add more signatures.">
+                    <div id="txsign_@signer.Id" class="list-group-item toolbox-item toolbox-item-small toolbox-item-signature">
                         <span class="toolbox-item-main">
                             <i class="bi bi-pen-fill" aria-hidden="true"></i>
                             <span class="toolbox-item-label">@signer.Email</span>
                         </span>
-                        <span class="toolbox-item-action">Click to place</span>
-                    </a>
+                        <span class="toolbox-item-actions signature-recipient-actions">
+                            <button type="button"
+                                    data-esign-action="insert-text-frame"
+                                    data-signer-id="@signer.Id"
+                                    data-signer-name="@signer.Name"
+                                    class="btn btn-sm btn-warning"
+                                    data-placement-hint="Signature field added. Move the cursor and click another recipient to add more signatures.">
+                                Place
+                            </button>
+                            <button type="button"
+                                    data-esign-action="assign-selected-signature-field"
+                                    data-signer-id="@signer.Id"
+                                    class="btn btn-sm btn-outline-primary"
+                                    data-placement-hint="Selected signature field assigned to this recipient.">
+                                Assign
+                            </button>
+                        </span>
+                    </div>
                 }
             }
 

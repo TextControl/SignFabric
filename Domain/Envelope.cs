@@ -13,11 +13,30 @@ namespace SignFabric.Domain {
 		public DateTime Created { get; set; }
 		public DateTime Sent { get; set; }
 		public string SigningCertificateId { get; set; }
+		public SigningCertificateEvidence SigningCertificate { get; set; }
 		public List<Signer> Signers { get; set; } = new List<Signer>();
 		public EnvelopeStatus Status { get; set; }
 		public string FaultMessage { get; set; }
 		public bool ContainsSignatureBoxes { get; set; }
 		public SignatureModel SignatureInformation { get; set; }
+		public DateTime? FinalizedAt { get; set; }
+		public string FinalDocumentHashSha256 { get; set; }
+		public string FinalDocumentHashMD5 { get; set; }
+		public long? FinalDocumentSizeBytes { get; set; }
+		public string OriginalDocumentHashSha256 { get; set; }
+		public string ValidationId { get; set; }
+	}
+
+	public class SigningCertificateEvidence {
+		public string RecordId { get; set; }
+		public string DisplayName { get; set; }
+		public string Thumbprint { get; set; }
+		public string Subject { get; set; }
+		public string Issuer { get; set; }
+		public string NotBefore { get; set; }
+		public string NotAfter { get; set; }
+		public string Provider { get; set; }
+		public DateTime CapturedAt { get; set; }
 	}
 
 	public class Signer {
@@ -26,6 +45,14 @@ namespace SignFabric.Domain {
 		public string Id { get; set; }
 		public string Name { get; set; }
 		public string Email { get; set; }
+		public bool RequireEmailOtp { get; set; }
+		public bool EmailOtpVerified { get; set; }
+		public DateTime? EmailOtpSentAt { get; set; }
+		public DateTime? EmailOtpExpiresAt { get; set; }
+		public DateTime? EmailOtpVerifiedAt { get; set; }
+		public int EmailOtpAttempts { get; set; }
+		public string EmailOtpCodeHash { get; set; }
+		public SignerAuthenticationMethod AuthenticationMethod { get; set; }
 		public SignatureModel SignatureInformation { get; set; }
 		public string SignatureImage { get; set; }
 		public SignerStatus SignerStatus {
@@ -58,6 +85,12 @@ namespace SignFabric.Domain {
 		Received,
 		Opened,
 		Signed
+	}
+
+	public enum SignerAuthenticationMethod {
+		EmailLink,
+		EmailOtp,
+		SignerAccount
 	}
 
 	public enum EnvelopeStatus {

@@ -11,10 +11,13 @@ namespace SignFabric.Application.Services {
 	public interface ISigningWorkflowService {
 		Task PrepareForSigningAsync(string envelopeId, string signerId);
 		Task<ExternalSigningPreparation> PrepareExternalSigningAsync(string accessId);
+		Task RequestSignerEmailOtpAsync(string accessId, bool forceNewCode = false);
+		Task<ExternalSigningPreparation> VerifySignerEmailOtpAsync(string accessId, string code);
+		Task TrustAuthenticatedSignerAsync(string accessId);
 		Task<SigningThanksInfo> GetSigningThanksAsync(string accessId);
 		Task<ValidatedDocument> ValidateSignedDocumentAsync(byte[] uploadedDocument);
 		Task CompleteSigningAsync(string envelopeId, string signerId);
-		Task CompleteDocumentViewerSigningAsync(SignatureData data, string userId, string envelopeId, string signerId, string ipAddress);
+		Task CompleteDocumentViewerSigningAsync(SignatureData data, string userId, string envelopeId, string signerId, string ipAddress, string userAgent);
 		Task<bool> IsFullySignedAsync(string envelopeId);
 		Task GenerateFinalDocumentAsync(string envelopeId);
 	}
@@ -25,6 +28,7 @@ namespace SignFabric.Application.Services {
 		public Envelope Envelope { get; set; }
 		public Signer Signer { get; set; }
 		public bool AlreadySigned { get; set; }
+		public bool RequiresEmailOtp { get; set; }
 	}
 
 	public class SigningThanksInfo {

@@ -46,6 +46,14 @@ namespace SignFabric.Infrastructure.Email {
 			}, "envelope invitations", string.Join(", ", envelope.Signers.ConvertAll(signer => signer.Email)));
 		}
 
+		public async Task SendSignerEmailOtpAsync(Envelope envelope, Signer signer, string code) {
+			var host = ResolveCurrentHost();
+			await SendAsync(async () => {
+				var email = new ConfirmationEmail(await _credentialsProvider.GetCredentialsAsync(), _paths);
+				email.SendSignerEmailOtpEmail(envelope, signer, code, host);
+			}, "signer verification code", signer.Email);
+		}
+
 		public async Task SendSignedConfirmationAsync(Envelope envelope, Signer signer) {
 			var host = ResolveCurrentHost();
 			await SendAsync(async () => {

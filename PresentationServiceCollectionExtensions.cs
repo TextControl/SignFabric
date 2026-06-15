@@ -122,7 +122,15 @@ namespace SignFabric {
 						ApiAuthorization.HasPermission(context.User, ApiAuthorization.EnvelopeCreatePermission));
 				});
 			});
-			services.AddRazorPages();
+			services.AddRazorPages(options => {
+				options.Conventions.AllowAnonymousToFolder("/Review");
+				options.Conventions.AllowAnonymousToPage("/Review/Index");
+				options.Conventions.AllowAnonymousToPage("/Review/Sign");
+				options.Conventions.AllowAnonymousToPage("/Review/SignLegacy");
+				options.Conventions.AllowAnonymousToPage("/Review/FullySigned");
+				options.Conventions.AllowAnonymousToPage("/Review/CreateAccount");
+				options.Conventions.AllowAnonymousToPage("/Review/Validate");
+			});
 			services.AddControllersWithViews(options => {
 				options.Conventions.Add(new TextControlAnonymousControllerConvention());
 			});
@@ -171,7 +179,14 @@ namespace SignFabric {
 			app.UseAuthentication();
 			app.UseAuthorization();
 			app.MapControllers();
-			app.MapRazorPages();
+			app.MapRazorPages()
+				.Add(endpointBuilder => {
+					var displayName = endpointBuilder.DisplayName ?? string.Empty;
+					if (displayName.Contains("/Review/", StringComparison.OrdinalIgnoreCase) ||
+						displayName.Contains("Pages.Review.", StringComparison.OrdinalIgnoreCase)) {
+						endpointBuilder.Metadata.Add(new AllowAnonymousAttribute());
+					}
+				});
 			app.MapControllerRoute(
 				name: "textcontrol-resources",
 				pattern: "TextControl/{action}/{id?}")

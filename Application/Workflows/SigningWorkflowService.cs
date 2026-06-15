@@ -8,6 +8,7 @@ using SignFabric.Application.Contracts;
 using SignFabric.Domain;
 using SignFabric.Presentation.ViewModels;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -25,10 +26,15 @@ namespace SignFabric.Application.Services {
 	/// Manages the document signing process and signer state
 	/// </summary>
 	public class SigningWorkflowService : ISigningWorkflowService {
+		private const int EmailOtpLifetimeMinutes = 10;
+		private const int EmailOtpMaxAttempts = 5;
+		private const int EmailOtpAutoSendThrottleSeconds = 45;
+
 		private readonly ITxDocumentService _txService;
 		private readonly IEmailSender _emailSender;
 		private readonly IAuditLogger _auditLogger;
 		private readonly IStoreRepositoryFactory _storeFactory;
+		private readonly ICertificateManagementService _certificateManagementService;
 		private readonly string _userId;
 		private readonly ILogger<SigningWorkflowService> _logger;
 
@@ -37,12 +43,14 @@ namespace SignFabric.Application.Services {
 			IEmailSender emailSender,
 			IAuditLogger auditLogger,
 			IStoreRepositoryFactory storeFactory,
+			ICertificateManagementService certificateManagementService,
 			string userId,
 			ILogger<SigningWorkflowService> logger) {
 			_txService = txService ?? throw new ArgumentNullException(nameof(txService));
 			_emailSender = emailSender ?? throw new ArgumentNullException(nameof(emailSender));
 			_auditLogger = auditLogger ?? throw new ArgumentNullException(nameof(auditLogger));
 			_storeFactory = storeFactory ?? throw new ArgumentNullException(nameof(storeFactory));
+			_certificateManagementService = certificateManagementService ?? throw new ArgumentNullException(nameof(certificateManagementService));
 			_userId = userId ?? throw new ArgumentNullException(nameof(userId));
 			_logger = logger ?? throw new ArgumentNullException(nameof(logger));
 		}
@@ -90,6 +98,15 @@ namespace SignFabric.Application.Services {
 					};
 				}
 
+				if (signer.RequireEmailOtp && !signer.EmailOtpVerified) {
+					return new ExternalSigningPreparation {
+						AccessId = accessId,
+						Envelope = envelope,
+						Signer = signer,
+						RequiresEmailOtp = true
+					};
+				}
+
 				signer.SignerStatus = SignerStatus.Opened;
 				store.Update(envelope.EnvelopeID, envelope);
 
@@ -103,6 +120,79 @@ namespace SignFabric.Application.Services {
 					Signer = signer
 				};
 			});
+		}
+
+		public async Task RequestSignerEmailOtpAsync(string accessId, bool forceNewCode = false) {
+			var (envelope, signer, ownerUserId) = LoadSigningContext(accessId);
+
+			if (!signer.RequireEmailOtp || signer.EmailOtpVerified) {
+				return;
+			}
+
+			var now = DateTime.UtcNow;
+			if (!forceNewCode &&
+				signer.EmailOtpSentAt.HasValue &&
+				signer.EmailOtpSentAt.Value > now.AddSeconds(-EmailOtpAutoSendThrottleSeconds) &&
+				signer.EmailOtpExpiresAt.HasValue &&
+				signer.EmailOtpExpiresAt.Value > now) {
+				return;
+			}
+
+			var code = RandomNumberGenerator.GetInt32(100000, 1000000).ToString(CultureInfo.InvariantCulture);
+			signer.EmailOtpCodeHash = HashEmailOtp(envelope.EnvelopeID, signer.Id, code);
+			signer.EmailOtpSentAt = now;
+			signer.EmailOtpExpiresAt = now.AddMinutes(EmailOtpLifetimeMinutes);
+			signer.EmailOtpAttempts = 0;
+			_storeFactory.CreateEnvelopeRepository(ownerUserId).Update(envelope.EnvelopeID, envelope);
+
+			await _emailSender.SendSignerEmailOtpAsync(envelope, signer, code);
+		}
+
+		public async Task<ExternalSigningPreparation> VerifySignerEmailOtpAsync(string accessId, string code) {
+			var (envelope, signer, ownerUserId) = LoadSigningContext(accessId);
+
+			if (!signer.RequireEmailOtp) {
+				return await PrepareExternalSigningAsync(accessId);
+			}
+
+			if (signer.EmailOtpVerified) {
+				return await PrepareExternalSigningAsync(accessId);
+			}
+
+			if (string.IsNullOrWhiteSpace(code) ||
+				string.IsNullOrWhiteSpace(signer.EmailOtpCodeHash) ||
+				!signer.EmailOtpExpiresAt.HasValue ||
+				signer.EmailOtpExpiresAt.Value < DateTime.UtcNow) {
+				throw new InvalidOperationException("The verification code is missing or has expired.");
+			}
+
+			if (signer.EmailOtpAttempts >= EmailOtpMaxAttempts) {
+				throw new InvalidOperationException("Too many verification attempts. Request a new code and try again.");
+			}
+
+			signer.EmailOtpAttempts++;
+			if (!string.Equals(
+				signer.EmailOtpCodeHash,
+				HashEmailOtp(envelope.EnvelopeID, signer.Id, code.Trim()),
+				StringComparison.OrdinalIgnoreCase)) {
+				_storeFactory.CreateEnvelopeRepository(ownerUserId).Update(envelope.EnvelopeID, envelope);
+				throw new InvalidOperationException("The verification code is not correct.");
+			}
+
+			MarkSignerAuthenticated(signer, SignerAuthenticationMethod.EmailOtp);
+			_storeFactory.CreateEnvelopeRepository(ownerUserId).Update(envelope.EnvelopeID, envelope);
+
+			return await PrepareExternalSigningAsync(accessId);
+		}
+
+		public Task TrustAuthenticatedSignerAsync(string accessId) {
+			var (envelope, signer, ownerUserId) = LoadSigningContext(accessId);
+			if (signer.RequireEmailOtp && !signer.EmailOtpVerified) {
+				MarkSignerAuthenticated(signer, SignerAuthenticationMethod.SignerAccount);
+				_storeFactory.CreateEnvelopeRepository(ownerUserId).Update(envelope.EnvelopeID, envelope);
+			}
+
+			return Task.CompletedTask;
 		}
 
 		public async Task<SigningThanksInfo> GetSigningThanksAsync(string accessId) {
@@ -163,10 +253,14 @@ namespace SignFabric.Application.Services {
 
 				try {
 					string storedDocument = store.GetFinalSignedDocument(envelope.EnvelopeID);
+					var storedBytes = Convert.FromBase64String(storedDocument);
+					var storedHashSha256 = string.IsNullOrWhiteSpace(envelope.FinalDocumentHashSha256)
+						? CalculateSha256(storedBytes)
+						: envelope.FinalDocumentHashSha256;
 
 					return new ValidatedDocument {
 						Envelope = envelope,
-						Valid = CalculateMD5(Convert.FromBase64String(storedDocument)) == CalculateMD5(uploadedDocument)
+						Valid = string.Equals(storedHashSha256, CalculateSha256(uploadedDocument), StringComparison.OrdinalIgnoreCase)
 					};
 				}
 				catch {
@@ -212,7 +306,7 @@ namespace SignFabric.Application.Services {
 			}
 		}
 
-		public async Task CompleteDocumentViewerSigningAsync(SignatureData data, string userId, string envelopeId, string signerId, string ipAddress) {
+		public async Task CompleteDocumentViewerSigningAsync(SignatureData data, string userId, string envelopeId, string signerId, string ipAddress, string userAgent) {
 			await Task.Run(async () => {
 				if (data?.SignedDocument == null) {
 					throw new InvalidOperationException("The signed document data was not received. Please reload the signing page and try again.");
@@ -230,33 +324,45 @@ namespace SignFabric.Application.Services {
 					throw new InvalidOperationException("The signer could not be found for this envelope. Please request a new signing link.");
 				}
 
+				byte[] signedDocument = Convert.FromBase64String(data.SignedDocument.Document);
+				var signatureLines = ExtractSignatureLines(data);
+
 				currentSigner.SignatureInformation = new SignatureModel {
 					Document = data.SignedDocument.Document,
+					DocumentHashSha256 = CalculateSha256(signedDocument),
 					IPAddress = ipAddress,
 					NumPages = data.SignedDocument.NumPages,
 					SignerInitials = data.SignedDocument.SignerInitials,
 					SignerName = data.SignedDocument.SignerName,
 					TimeStamp = data.SignedDocument.TimeStamp,
-					UniqueId = data.SignedDocument.UniqueId
+					UniqueId = data.SignedDocument.UniqueId,
+					UserAgent = NormalizeEvidenceValue(userAgent),
+					SignatureBoxName = ResolveSignatureBoxName(data.SignatureBoxName, signerId),
+					SignatureLines = signatureLines,
+					SignatureMethod = signatureLines.Count > 0 ? "Drawn signature" : "Electronic signature"
 				};
 
 				store.Update(envelope.EnvelopeID, envelope);
-
-				byte[] signedDocument = Convert.FromBase64String(data.SignedDocument.Document);
 
 				using (var ms = new MemoryStream(signedDocument)) {
 					store.UploadSignedDocument(envelope, ms, signerId);
 				}
 
 				var signatureBoxResult = data.SignedDocument.SignatureBoxMergeResults?.FirstOrDefault();
-				if (string.IsNullOrWhiteSpace(signatureBoxResult?.ImageResult)) {
-					throw new InvalidOperationException("The signature image was not received. Please reload the signing page and try again.");
+				if (!string.IsNullOrWhiteSpace(signatureBoxResult?.ImageResult)) {
+					byte[] signatureImage = Convert.FromBase64String(signatureBoxResult.ImageResult);
+					currentSigner.SignatureInformation.SignatureImageHashSha256 = CalculateSha256(signatureImage);
+
+					using (var memStream = new MemoryStream(signatureImage, 0, signatureImage.Length, writable: false, publiclyVisible: true)) {
+						store.UploadSignatureImage(envelope, memStream, signerId);
+					}
 				}
-
-				byte[] signatureImage = Convert.FromBase64String(signatureBoxResult.ImageResult);
-
-				using (var memStream = new MemoryStream(signatureImage, 0, signatureImage.Length, writable: false, publiclyVisible: true)) {
-					store.UploadSignatureImage(envelope, memStream, signerId);
+				else {
+					currentSigner.SignatureInformation.SignatureMethod = "Electronic signature";
+					_logger.LogWarning(
+						"No signature image was included for signer {SignerId} in envelope {EnvelopeId}. The signed document will be finalized without a separate signature image artifact.",
+						signerId,
+						envelopeId);
 				}
 
 				currentSigner.SignerStatus = SignerStatus.Signed;
@@ -275,6 +381,14 @@ namespace SignFabric.Application.Services {
 						using (var ms = new MemoryStream(createdPDF.PdfData)) {
 							store.UploadFinalSignedDocument(envelope, ms);
 						}
+
+						envelope.FinalizedAt = DateTime.UtcNow;
+						envelope.FinalDocumentHashSha256 = CalculateSha256(createdPDF.PdfData);
+						envelope.FinalDocumentHashMD5 = CalculateMD5(createdPDF.PdfData);
+						envelope.FinalDocumentSizeBytes = createdPDF.PdfData.LongLength;
+						envelope.OriginalDocumentHashSha256 = CalculateSha256(Convert.FromBase64String(store.GetDocument(envelope.EnvelopeID)));
+						envelope.ValidationId = Convert.ToBase64String(Encoding.ASCII.GetBytes(envelope.EnvelopeID + ":" + userId));
+						envelope.SigningCertificate ??= GetSigningCertificateEvidence(envelope);
 
 						if (!string.IsNullOrWhiteSpace(createdPDF.ThumbnailSvg)) {
 							store.AddThumbnail(envelope, createdPDF.ThumbnailSvg);
@@ -340,6 +454,14 @@ namespace SignFabric.Application.Services {
 					using (var ms = new MemoryStream(pdfData)) {
 						store.UploadFinalSignedDocument(envelope, ms);
 					}
+
+					envelope.FinalizedAt = DateTime.UtcNow;
+					envelope.FinalDocumentHashSha256 = CalculateSha256(pdfData);
+					envelope.FinalDocumentHashMD5 = CalculateMD5(pdfData);
+					envelope.FinalDocumentSizeBytes = pdfData.LongLength;
+					envelope.OriginalDocumentHashSha256 = CalculateSha256(Convert.FromBase64String(store.GetDocument(envelope.EnvelopeID)));
+					envelope.ValidationId = Convert.ToBase64String(Encoding.ASCII.GetBytes(envelope.EnvelopeID + ":" + _userId));
+					envelope.SigningCertificate ??= GetSigningCertificateEvidence(envelope);
 
 					if (!string.IsNullOrWhiteSpace(thumbnailSvg)) {
 						store.AddThumbnail(envelope, thumbnailSvg);
@@ -416,14 +538,64 @@ namespace SignFabric.Application.Services {
 		}
 
 		private static (string EnvelopeId, string OwnerUserId, string SignerId) DecodeSigningAccessId(string accessId) {
-			byte[] octets = Convert.FromBase64String(accessId);
-			string[] parts = Encoding.ASCII.GetString(octets).Split(':');
+			if (string.IsNullOrWhiteSpace(accessId) || Path.HasExtension(accessId)) {
+				throw new InvalidOperationException("Invalid signing access id.");
+			}
+
+			string decodedAccessId;
+			if (accessId.Contains(':')) {
+				decodedAccessId = accessId;
+			}
+			else {
+				try {
+					var normalized = accessId.Trim().Replace(' ', '+').Replace('-', '+').Replace('_', '/');
+					normalized = normalized.PadRight(normalized.Length + ((4 - normalized.Length % 4) % 4), '=');
+					byte[] octets = Convert.FromBase64String(normalized);
+					decodedAccessId = Encoding.ASCII.GetString(octets);
+				}
+				catch (FormatException ex) {
+					throw new InvalidOperationException("Invalid signing access id.", ex);
+				}
+			}
+
+			string[] parts = decodedAccessId.Split(':');
 
 			if (parts.Length < 3) {
 				throw new InvalidOperationException("Invalid signing access id.");
 			}
 
 			return (parts[0], parts[1], parts[2]);
+		}
+
+		private (Envelope Envelope, Signer Signer, string OwnerUserId) LoadSigningContext(string accessId) {
+			var (envelopeId, ownerUserId, signerId) = DecodeSigningAccessId(accessId);
+			var store = _storeFactory.CreateEnvelopeRepository(ownerUserId);
+			Envelope envelope = store.GetEnvelopes(envelopeId).FirstOrDefault()
+				?? throw new InvalidOperationException($"Envelope {envelopeId} not found");
+			Signer signer = envelope.Signers.FirstOrDefault(item => item.Id == signerId)
+				?? throw new InvalidOperationException($"Signer {signerId} not found in envelope {envelopeId}");
+
+			return (envelope, signer, ownerUserId);
+		}
+
+		private static void MarkSignerAuthenticated(Signer signer, SignerAuthenticationMethod method) {
+			signer.EmailOtpVerified = true;
+			signer.EmailOtpVerifiedAt = DateTime.UtcNow;
+			signer.AuthenticationMethod = method;
+			signer.EmailOtpCodeHash = null;
+			signer.EmailOtpExpiresAt = null;
+			signer.EmailOtpAttempts = 0;
+		}
+
+		private static string NormalizeEvidenceValue(string value) =>
+			string.IsNullOrWhiteSpace(value) ? "Not available" : value.Trim();
+
+		private static string ResolveSignatureBoxName(string signatureBoxName, string signerId) =>
+			string.IsNullOrWhiteSpace(signatureBoxName) ? $"txsign_{signerId}" : signatureBoxName.Trim();
+
+		private static string HashEmailOtp(string envelopeId, string signerId, string code) {
+			var material = $"{envelopeId}:{signerId}:{code}";
+			return CalculateSha256(Encoding.UTF8.GetBytes(material));
 		}
 
 		private async Task TrySendSignedConfirmationAsync(Envelope envelope, Signer signer) {
@@ -454,6 +626,75 @@ namespace SignFabric.Application.Services {
 			using (var md5 = MD5.Create()) {
 				return BitConverter.ToString(md5.ComputeHash(document)).Replace("-", "").ToLowerInvariant();
 			}
+		}
+
+		private static string CalculateSha256(byte[] document) {
+			using (var sha256 = SHA256.Create()) {
+				return BitConverter.ToString(sha256.ComputeHash(document)).Replace("-", "").ToLowerInvariant();
+			}
+		}
+
+		private SigningCertificateEvidence GetSigningCertificateEvidence(Envelope envelope) {
+			var certificates = _certificateManagementService.GetCertificatesAsync().GetAwaiter().GetResult();
+			var certificate = certificates.FirstOrDefault(item =>
+					string.Equals(item.Id, envelope.SigningCertificateId, StringComparison.OrdinalIgnoreCase)) ??
+				certificates.FirstOrDefault(item => item.IsActive);
+
+			if (certificate == null) {
+				return null;
+			}
+
+			var configuration = _certificateManagementService.GetConfigurationAsync().GetAwaiter().GetResult();
+			return new SigningCertificateEvidence {
+				RecordId = envelope.SigningCertificateId ?? certificate.Id,
+				DisplayName = certificate.DisplayName,
+				Thumbprint = certificate.Thumbprint,
+				Subject = certificate.Subject,
+				Issuer = certificate.Issuer,
+				NotBefore = certificate.NotBefore,
+				NotAfter = certificate.NotAfter,
+				Provider = configuration.Provider,
+				CapturedAt = DateTime.UtcNow
+			};
+		}
+
+		private static List<SignatureStroke> ExtractSignatureLines(object data) {
+			var signatureLines = data?.GetType().GetProperty("SignatureLines")?.GetValue(data);
+			var result = new List<SignatureStroke>();
+
+			if (signatureLines is not IEnumerable lines) {
+				return result;
+			}
+
+			var lineIndex = 1;
+			foreach (var line in lines) {
+				if (line is not IEnumerable points) {
+					continue;
+				}
+
+				var stroke = new SignatureStroke {
+					Index = lineIndex++
+				};
+
+				foreach (var point in points) {
+					if (point == null) {
+						continue;
+					}
+
+					var pointType = point.GetType();
+					var timestamp = Convert.ToInt64(pointType.GetProperty("CreationTimeStamp")?.GetValue(point) ?? 0, CultureInfo.InvariantCulture);
+					stroke.Points.Add(new SignaturePointModel {
+						X = Convert.ToInt32(pointType.GetProperty("X")?.GetValue(point) ?? 0, CultureInfo.InvariantCulture),
+						Y = Convert.ToInt32(pointType.GetProperty("Y")?.GetValue(point) ?? 0, CultureInfo.InvariantCulture),
+						CreationTimeStamp = timestamp,
+						CreatedAtUtc = timestamp > 0 ? DateTimeOffset.FromUnixTimeMilliseconds(timestamp).UtcDateTime : null
+					});
+				}
+
+				result.Add(stroke);
+			}
+
+			return result;
 		}
 	}
 }

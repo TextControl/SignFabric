@@ -27,6 +27,10 @@
     "Subject": "Signing failed: %%%document_name%%%",
     "Preheader": "The final signed PDF could not be created."
   },
+  "signing-email-otp.html": {
+    "Subject": "Verification code for %%%document_name%%%",
+    "Preheader": "Confirm your e-mail address before signing."
+  },
   "user-invitation.html": {
     "Subject": "Your Text Control SignFabric account invitation",
     "Preheader": "You have been invited to Text Control SignFabric."

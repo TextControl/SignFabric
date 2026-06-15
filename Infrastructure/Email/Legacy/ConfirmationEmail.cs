@@ -81,8 +81,7 @@ namespace SignFabric.Infrastructure.Email.Legacy {
 		public void SendSigningInvitationEmail(Envelope envelope, Signer signer, string host, string userId) {
 			EmailService emailService = new EmailService(_credentials);
 
-			byte[] octets = System.Text.Encoding.ASCII.GetBytes(envelope.EnvelopeID + ":" + userId + ":" + signer.Id);
-			var envelope_code = Convert.ToBase64String(octets);
+			var envelope_code = EncodeAccessId(envelope.EnvelopeID, userId, signer.Id);
 
 			string emailBody = RenderTemplate(
 				"confirmation.html",
@@ -110,8 +109,7 @@ namespace SignFabric.Infrastructure.Email.Legacy {
 
 			foreach (Signer signer in envelope.Signers) {
 
-				byte[] octets = System.Text.Encoding.ASCII.GetBytes(envelope.EnvelopeID + ":" + userId + ":" + signer.Id);
-				var envelope_code = Convert.ToBase64String(octets);
+				var envelope_code = EncodeAccessId(envelope.EnvelopeID, userId, signer.Id);
 
 				string emailBody = RenderTemplate(
 					"confirmation.html",
@@ -157,8 +155,7 @@ namespace SignFabric.Infrastructure.Email.Legacy {
 			// send e-mail
 			EmailService emailService = new EmailService(_credentials);
 
-			byte[] octets = System.Text.Encoding.ASCII.GetBytes(contract.ContractID + ":" + userId);
-			var envelope_code = Convert.ToBase64String(octets);
+			var envelope_code = EncodeAccessId(contract.ContractID, userId);
 
 			string emailBody = RenderTemplate(
 				"confirmation-contract.html",
@@ -297,6 +294,25 @@ namespace SignFabric.Infrastructure.Email.Legacy {
 			});
 		}
 
+		public void SendSignerEmailOtpEmail(Envelope envelope, Signer signer, string code, string host) {
+			EmailService emailService = new EmailService(_credentials);
+			string emailBody = RenderTemplate(
+				"signing-email-otp.html",
+				new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
+					["%%%sender_name%%%"] = WebUtility.HtmlEncode(envelope.Sender),
+					["%%%document_name%%%"] = WebUtility.HtmlEncode(envelope.Name),
+					["%%%verification_code%%%"] = WebUtility.HtmlEncode(code),
+					["%%%url%%%"] = WebUtility.HtmlEncode(HostUrl(host))
+				},
+				out var subject);
+
+			emailService.Send(new EmailMessage {
+				Body = emailBody,
+				Destination = signer.Email,
+				Subject = subject
+			});
+		}
+
 		public void SendPasswordResetEmail(string destination, string resetUrl, string host) {
 			EmailService emailService = new EmailService(_credentials);
 			string emailBody = RenderTemplate(
@@ -318,6 +334,12 @@ namespace SignFabric.Infrastructure.Email.Legacy {
 			public string Subject { get; set; }
 			public string Preheader { get; set; }
 		}
+
+		private static string EncodeAccessId(params string[] parts) =>
+			Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes(string.Join(":", parts)))
+				.TrimEnd('=')
+				.Replace('+', '-')
+				.Replace('/', '_');
 
 	}
 }

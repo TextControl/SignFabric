@@ -580,9 +580,214 @@
 
     window.TextControlEsignPages = {
         initReviewSigning: function () {
-            window.addEventListener("documentViewerLoaded", function () {
+            function initializeReviewSigningViewer() {
+                if (document.body.dataset.reviewSigningInitialized === "true") {
+                    return;
+                }
+
+                if (typeof TXDocumentViewer === "undefined" || !TXDocumentViewer.signatures) {
+                    return;
+                }
+
+                document.body.dataset.reviewSigningInitialized = "true";
+
                 var signingInProgress = false;
-                TXDocumentViewer.toolbar.hide(); 
+                var signaturesAreCompleted = false;
+                var readyBar = document.getElementById("reviewSigningReadyBar");
+
+                if (TXDocumentViewer.toolbar && typeof TXDocumentViewer.toolbar.hide === "function") {
+                    TXDocumentViewer.toolbar.hide();
+                }
+
+                function ensureReadyBar() {
+                    readyBar = document.getElementById("reviewSigningReadyBar");
+
+                    if (!readyBar) {
+                        readyBar = document.createElement("section");
+                        readyBar.id = "reviewSigningReadyBar";
+                        readyBar.className = "review-sign-ready-bar";
+                        readyBar.setAttribute("aria-live", "polite");
+                        readyBar.innerHTML = [
+                            '<div class="review-sign-ready-content">',
+                            '<div class="review-sign-ready-icon" aria-hidden="true"><i class="bi bi-check2"></i></div>',
+                            '<div class="review-sign-ready-copy">',
+                            '<h2>Ready to Finish?</h2>',
+                            "<p>You've completed the required fields. Review your work, then select Finish.</p>",
+                            '</div>',
+                            '<button id="reviewSigningFinishButton" type="button" class="btn btn-primary review-sign-ready-action">Finish</button>',
+                            '</div>'
+                        ].join("");
+                    }
+
+                    if (readyBar.parentElement !== document.body || readyBar.nextElementSibling) {
+                        document.body.appendChild(readyBar);
+                    }
+
+                    readyBar.setAttribute("popover", "manual");
+
+                    var finishButton = document.getElementById("reviewSigningFinishButton");
+                    if (finishButton && finishButton.dataset.reviewSigningReadyBound !== "true") {
+                        finishButton.dataset.reviewSigningReadyBound = "true";
+                        finishButton.addEventListener("click", submitCompletedSignatures);
+                    }
+
+                    return readyBar;
+                }
+
+                function setReadyBarVisible(visible) {
+                    if (visible) {
+                        readyBar = ensureReadyBar();
+                    }
+
+                    if (!readyBar) {
+                        return;
+                    }
+
+                    readyBar.classList.toggle("is-visible", visible);
+                    readyBar.setAttribute("aria-hidden", visible ? "false" : "true");
+
+                    if (visible) {
+                        readyBar.style.setProperty("display", "block", "important");
+                        readyBar.style.setProperty("visibility", "visible", "important");
+                        readyBar.style.setProperty("opacity", "1", "important");
+                        readyBar.style.setProperty("transform", "translateY(0)", "important");
+                        readyBar.style.setProperty("pointer-events", "auto", "important");
+                        readyBar.style.setProperty("position", "fixed", "important");
+                        readyBar.style.setProperty("inset", "auto 0 0 0", "important");
+                        readyBar.style.setProperty("right", "0", "important");
+                        readyBar.style.setProperty("bottom", "0", "important");
+                        readyBar.style.setProperty("left", "0", "important");
+                        readyBar.style.setProperty("width", "auto", "important");
+                        readyBar.style.setProperty("height", "auto", "important");
+                        readyBar.style.setProperty("margin", "0", "important");
+                        readyBar.style.setProperty("border", "0", "important");
+                        readyBar.style.setProperty("background", "transparent", "important");
+                        readyBar.style.setProperty("overflow", "visible", "important");
+                        readyBar.style.setProperty("z-index", "2147483000", "important");
+
+                        if (typeof readyBar.showPopover === "function" && !readyBar.matches(":popover-open")) {
+                            readyBar.showPopover();
+                        }
+                    }
+                    else {
+                        if (typeof readyBar.hidePopover === "function" && readyBar.matches(":popover-open")) {
+                            readyBar.hidePopover();
+                        }
+
+                        readyBar.style.removeProperty("display");
+                        readyBar.style.removeProperty("visibility");
+                        readyBar.style.removeProperty("opacity");
+                        readyBar.style.removeProperty("transform");
+                        readyBar.style.removeProperty("pointer-events");
+                        readyBar.style.removeProperty("position");
+                        readyBar.style.removeProperty("inset");
+                        readyBar.style.removeProperty("right");
+                        readyBar.style.removeProperty("bottom");
+                        readyBar.style.removeProperty("left");
+                        readyBar.style.removeProperty("width");
+                        readyBar.style.removeProperty("height");
+                        readyBar.style.removeProperty("margin");
+                        readyBar.style.removeProperty("border");
+                        readyBar.style.removeProperty("background");
+                        readyBar.style.removeProperty("overflow");
+                        readyBar.style.removeProperty("z-index");
+                    }
+                }
+
+                function submitCompletedSignatures() {
+                    if (signingInProgress) {
+                        TextControl.esign.showToast("The document is already being submitted.", "warning");
+                        return;
+                    }
+
+                    if (!TXDocumentViewer.signatures || typeof TXDocumentViewer.signatures.submit !== "function") {
+                        TextControl.esign.showToast("The document cannot be submitted yet.", "warning");
+                        return;
+                    }
+
+                    TXDocumentViewer.signatures.submit();
+                }
+
+                function getActionLabel(action) {
+                    return (action.innerText || action.value || action.getAttribute("aria-label") || action.getAttribute("title") || "").trim().toLowerCase();
+                }
+
+                function isDisabledAction(action) {
+                    return action.disabled || action.getAttribute("aria-disabled") === "true" || action.classList.contains("disabled");
+                }
+
+                function isVisibleAction(action) {
+                    return !!(action.offsetWidth || action.offsetHeight || action.getClientRects().length);
+                }
+
+                function isReadySubmitAction(action) {
+                    if (!action || isDisabledAction(action) || !isVisibleAction(action)) {
+                        return false;
+                    }
+
+                    var label = getActionLabel(action);
+                    return label === "finish" || label.indexOf("finish") >= 0 || label === "submit" || label.indexOf("submit") >= 0;
+                }
+
+                function findReadySubmitActionIn(container) {
+                    if (!container) {
+                        return null;
+                    }
+
+                    var actions = container.querySelectorAll("button, input[type='button'], input[type='submit'], a, [role='button']");
+                    for (var i = 0; i < actions.length; i++) {
+                        if (!actions[i].closest("#reviewSigningReadyBar, #reviewSigningResult") && isReadySubmitAction(actions[i])) {
+                            return actions[i];
+                        }
+                    }
+
+                    return null;
+                }
+
+                function findReadySubmitAction() {
+                    return findReadySubmitActionIn(document.getElementById("tx-documentViewer")) || findReadySubmitActionIn(document.body);
+                }
+
+                function checkReadyBarFallback() {
+                    if (signingInProgress) {
+                        return;
+                    }
+
+                    if (signaturesAreCompleted) {
+                        setReadyBarVisible(true);
+                        return;
+                    }
+
+                    setReadyBarVisible(!!findReadySubmitAction());
+                }
+
+                function scheduleReadyBarCheck() {
+                    window.setTimeout(checkReadyBarFallback, 100);
+                    window.setTimeout(checkReadyBarFallback, 500);
+                }
+
+                function observeReadyBarFallback() {
+                    if (typeof MutationObserver !== "function") {
+                        return;
+                    }
+
+                    var observer = new MutationObserver(function (mutations) {
+                        var hasExternalMutation = mutations.some(function (mutation) {
+                            return !readyBar || !readyBar.contains(mutation.target);
+                        });
+
+                        if (hasExternalMutation) {
+                            scheduleReadyBarCheck();
+                        }
+                    });
+                    observer.observe(document.body, {
+                        attributes: true,
+                        attributeFilter: ["aria-disabled", "class", "disabled", "style"],
+                        childList: true,
+                        subtree: true
+                    });
+                }
+
                 function showSigningState(state, message) {
                     var result = document.getElementById("reviewSigningResult");
                     var viewer = document.getElementById("home");
@@ -598,6 +803,10 @@
                     if (!result || !icon || !title || !text || !detail) {
                         TextControl.esign.showToast(message, isError ? "danger" : undefined);
                         return;
+                    }
+
+                    if (state === "pending" || state === "success" || state === "error") {
+                        setReadyBarVisible(false);
                     }
 
                     if (viewer && state !== "pending") {
@@ -643,8 +852,8 @@
                         return false;
                     }
 
-                    var label = (action.innerText || action.value || action.getAttribute("aria-label") || action.getAttribute("title") || "").trim().toLowerCase();
-                    return label === "submit" || label.indexOf("submit") >= 0 || label.indexOf("sign") >= 0;
+                    var label = getActionLabel(action);
+                    return label === "finish" || label.indexOf("finish") >= 0 || label === "submit" || label.indexOf("submit") >= 0;
                 }
 
                 document.addEventListener("click", function (event) {
@@ -654,8 +863,12 @@
 
                     if (isSubmitAction(event.target)) {
                         signingInProgress = true;
+                        signaturesAreCompleted = false;
                         showSigningState("pending");
+                        return;
                     }
+
+                    scheduleReadyBarCheck();
                 }, true);
 
                 TXDocumentViewer.signatures.setSubmitCallback(function (result) {
@@ -670,6 +883,25 @@
 
                 $("#tx-documentViewer").css("z-index", 800);
 
+                ensureReadyBar();
+
+                observeReadyBarFallback();
+                scheduleReadyBarCheck();
+
+                if (typeof TXDocumentViewer.addEventListener === "function") {
+                    try {
+                        TXDocumentViewer.addEventListener("signaturesCompleted", function () {
+                            signaturesAreCompleted = true;
+                            setReadyBarVisible(true);
+                            window.setTimeout(function () { setReadyBarVisible(true); }, 250);
+                            window.setTimeout(function () { setReadyBarVisible(true); }, 1000);
+                        });
+                    }
+                    catch (_) {
+                        scheduleReadyBarCheck();
+                    }
+                }
+
                 TXDocumentViewer.signatures.setBeforeSubmitCallback(function () {
                     if (signingInProgress) {
                         TextControl.esign.showToast("The document is already being submitted.", "warning");
@@ -677,10 +909,16 @@
                     }
 
                     signingInProgress = true;
+                    signaturesAreCompleted = false;
                     showSigningState("pending");
                     return true;
                 });
-            });
+            }
+
+            window.addEventListener("documentViewerLoaded", initializeReviewSigningViewer);
+            initializeReviewSigningViewer();
+            window.setTimeout(initializeReviewSigningViewer, 250);
+            window.setTimeout(initializeReviewSigningViewer, 1000);
         },
 
         initCollaboration: function (documentId, owner) {

@@ -27,7 +27,15 @@ namespace SignFabric.Application.Services {
 				var store = _storeFactory.CreateEnvelopeRepository(userId);
 				var envelope = store.GetEnvelopes(envelopeId).FirstOrDefault() ?? throw new InvalidOperationException("Envelope not found");
 				if (envelope.Signers.Any(p => p.Email.ToLower() == signer.Email.ToLower())) throw new InvalidOperationException("List already contains this recipient");
-				envelope.Signers.Add(new Signer { Name = signer.Name, Email = signer.Email, Id = Guid.NewGuid().ToString() });
+				envelope.Signers.Add(new Signer {
+					Name = signer.Name,
+					Email = signer.Email,
+					Id = Guid.NewGuid().ToString(),
+					RequireEmailOtp = signer.RequireEmailOtp,
+					AuthenticationMethod = signer.RequireEmailOtp
+						? SignerAuthenticationMethod.EmailOtp
+						: SignerAuthenticationMethod.EmailLink
+				});
 				envelope.Status = EnvelopeStatus.New;
 				store.Update(envelope.EnvelopeID, envelope);
 				return envelope;

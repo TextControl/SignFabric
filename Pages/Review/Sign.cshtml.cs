@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
 using System;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace SignFabric.Pages.Review {
@@ -24,6 +25,10 @@ namespace SignFabric.Pages.Review {
 		public Signer Signer { get; set; }
 		public bool CanCreateSignerAccount { get; set; }
 		public bool SignerAccountExists { get; set; }
+		public bool RequiresEmailOtp { get; set; }
+		public string OtpMessage { get; set; }
+		public string OtpError { get; set; }
+		public string SignInReturnUrl { get; set; }
 
 		private readonly ISigningWorkflowService _signingWorkflowService;
 		private readonly UserManager<LiteDB.Identity.Models.LiteDbUser> _userManager;
@@ -46,23 +51,79 @@ namespace SignFabric.Pages.Review {
 
 				var preparation = await _signingWorkflowService.PrepareExternalSigningAsync(id);
 
+				if (preparation.RequiresEmailOtp && IsAuthenticatedSigner(preparation.Signer)) {
+					await _signingWorkflowService.TrustAuthenticatedSignerAsync(id);
+					preparation = await _signingWorkflowService.PrepareExternalSigningAsync(id);
+				}
+
 				if (preparation.AlreadySigned) {
 					return RedirectToPage("FullySigned");
 				}
 
-				AccessId = preparation.AccessId;
-				Document = preparation.Document;
-				Envelope = preparation.Envelope;
-				Signer = preparation.Signer;
-				if (_signerAccountOptions.CurrentValue.Enabled && !string.IsNullOrWhiteSpace(Signer.Email)) {
-					SignerAccountExists = await _userManager.FindByEmailAsync(Signer.Email) != null;
-					CanCreateSignerAccount = !SignerAccountExists;
+				await BindPreparationAsync(preparation);
+
+				if (RequiresEmailOtp) {
+					await _signingWorkflowService.RequestSignerEmailOtpAsync(id);
+					OtpMessage = "We sent a verification code to your e-mail address.";
 				}
 
 				return Page();
 			} catch {
 				return RedirectToPage("Index", new { error = true });
 			}
+		}
+
+		public async Task<IActionResult> OnPostVerifyOtpAsync(string id, string otpCode) {
+			try {
+				var preparation = await _signingWorkflowService.VerifySignerEmailOtpAsync(id, otpCode);
+				if (preparation.AlreadySigned) {
+					return RedirectToPage("FullySigned");
+				}
+
+				return RedirectToPage("Sign", new { id });
+			}
+			catch (Exception ex) {
+				var preparation = await _signingWorkflowService.PrepareExternalSigningAsync(id);
+				await BindPreparationAsync(preparation);
+				OtpError = ex.Message;
+				return Page();
+			}
+		}
+
+		public async Task<IActionResult> OnPostSendOtpAsync(string id) {
+			try {
+				await _signingWorkflowService.RequestSignerEmailOtpAsync(id, forceNewCode: true);
+				var preparation = await _signingWorkflowService.PrepareExternalSigningAsync(id);
+				await BindPreparationAsync(preparation);
+				OtpMessage = "A new verification code has been sent.";
+				return Page();
+			}
+			catch {
+				return RedirectToPage("Index", new { error = true });
+			}
+		}
+
+		private async Task BindPreparationAsync(ExternalSigningPreparation preparation) {
+			AccessId = preparation.AccessId;
+			Document = preparation.Document;
+			Envelope = preparation.Envelope;
+			Signer = preparation.Signer;
+			RequiresEmailOtp = preparation.RequiresEmailOtp;
+			SignInReturnUrl = Url.Page("/Review/Sign", pageHandler: null, values: new { id = AccessId });
+
+			if (_signerAccountOptions.CurrentValue.Enabled && !string.IsNullOrWhiteSpace(Signer.Email)) {
+				SignerAccountExists = await _userManager.FindByEmailAsync(Signer.Email) != null;
+				CanCreateSignerAccount = !SignerAccountExists;
+			}
+		}
+
+		private bool IsAuthenticatedSigner(Signer signer) {
+			if (signer == null || string.IsNullOrWhiteSpace(signer.Email) || User?.Identity?.IsAuthenticated != true) {
+				return false;
+			}
+
+			var email = User.FindFirstValue(ClaimTypes.Email) ?? User.Identity.Name;
+			return string.Equals(email, signer.Email, StringComparison.OrdinalIgnoreCase);
 		}
 	}
 }

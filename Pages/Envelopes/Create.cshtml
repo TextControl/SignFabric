@@ -88,6 +88,11 @@
                                     <input type="email" required placeholder="signer@company.com" class="form-control" id="signerEmail" aria-describedby="emailHelp">
                                     <div id="emailHelp" class="form-text">We'll never share the e-mail with anyone else.</div>
                                 </div>
+                                <div class="form-check recipient-auth-option">
+                                    <input type="checkbox" class="form-check-input" id="requireEmailOtp">
+                                    <label for="requireEmailOtp" class="form-check-label">Require e-mail verification code before signing</label>
+                                    <div class="form-text">Signers can also sign in with an existing account for this e-mail address.</div>
+                                </div>
 
                                 <button data-esign-action="submit-recipient" data-envelope-id="@Model.Envelope.EnvelopeID" data-type="envelope" class="btn btn-warning"><strong>Add Recipient</strong></button>
 

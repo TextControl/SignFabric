@@ -1,10 +1,14 @@
-@page "/review/sign/{id?}"
+@page "/review/sign"
 @model SignFabric.Pages.Review.SignPageModel
 @using TXTextControl.Web.MVC.DocumentViewer
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
 
 @{
     Layout = null;
-    var signatureCallbackUrl = $"{Request.Scheme}://{Request.Host}/review/SignDocumentFinal?userID={Model.Envelope.UserID}&envelopeId={Model.Envelope.EnvelopeID}&signerId={Model.Signer.Id}";
+    var signerUserAgent = System.Uri.EscapeDataString(Request.Headers.UserAgent.ToString() ?? string.Empty);
+    var signatureCallbackUrl = Model.Envelope == null || Model.Signer == null
+        ? string.Empty
+        : $"{Request.Scheme}://{Request.Host}/review/SignDocumentFinal?userID={Model.Envelope.UserID}&envelopeId={Model.Envelope.EnvelopeID}&signerId={Model.Signer.Id}&signerUserAgent={signerUserAgent}";
 }
 
 <!DOCTYPE html>
@@ -19,55 +23,130 @@
 </head>
 <body>
 
-    <section id="home">
-        @Html.TXTextControl().DocumentViewer(settings => {
-            settings.DocumentData = Model.Document;
-            settings.Dock = DocumentViewerSettings.DockStyle.Window;
-            settings.IsSelectionActivated = false;
-            settings.ShowThumbnailPane = true;
-            settings.SignatureSettings = new SignatureSettings() {
-                OwnerName = Model.Envelope.Sender,
-                ShowSignatureBar = true,
-                SignerName = Model.Signer.Name,
-                UniqueId = Model.Envelope.EnvelopeID,
-                RedirectUrlAfterSignature = signatureCallbackUrl,
-                SignatureBoxes = new SignatureBox[] {
-                    new SignatureBox("txsign_" + Model.Signer.Id) { SigningRequired = true, Style = SignatureBox.SignatureBoxStyle.Signature },
-                }
-            };
-        }).Render()
-    </section>
+    @if (Model.RequiresEmailOtp) {
+        <main class="review-sign-auth-shell">
+            <section class="auth-card review-sign-auth-card">
+                <div class="auth-icon" aria-hidden="true">
+                    <i class="bi bi-envelope-check"></i>
+                </div>
+                <h1>Confirm your e-mail</h1>
+                <p>
+                    Enter the verification code sent to <strong>@Model.Signer.Email</strong>
+                    to open <strong>@Model.Envelope.Name</strong>.
+                </p>
 
-    <section id="reviewSigningResult"
-             class="review-sign-result d-none"
-             aria-live="polite"
-             data-signer-email="@Model.Signer.Email">
-        <div class="auth-card">
-            <div id="reviewSigningResultIcon" class="auth-icon" aria-hidden="true">
-                <i class="bi bi-check2-circle"></i>
+                @if (!string.IsNullOrWhiteSpace(Model.OtpMessage)) {
+                    <div class="auth-alert auth-alert-success" role="status">@Model.OtpMessage</div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Model.OtpError)) {
+                    <div class="auth-alert auth-alert-danger" role="alert">@Model.OtpError</div>
+                }
+
+                <form method="post" asp-page-handler="VerifyOtp" asp-route-id="@Model.AccessId" class="auth-form review-sign-otp-form">
+                    <label for="otpCode" class="form-label">Verification code</label>
+                    <input id="otpCode"
+                           name="otpCode"
+                           class="form-control review-sign-otp-input"
+                           inputmode="numeric"
+                           autocomplete="one-time-code"
+                           maxlength="6"
+                           pattern="[0-9]{6}"
+                           required />
+                    <button type="submit" class="btn btn-primary w-100">Continue to Document</button>
+                </form>
+
+                <form method="post" asp-page-handler="SendOtp" asp-route-id="@Model.AccessId" class="review-sign-secondary-action">
+                    <button type="submit" class="btn btn-link">Send a new code</button>
+                </form>
+
+                @if (Model.SignerAccountExists) {
+                    <div class="review-signer-account-prompt" data-account-prompt="signin">
+                        <p>An account already exists for <strong>@Model.Signer.Email</strong>.</p>
+                        <a asp-area="Identity"
+                           asp-page="/Account/Login"
+                           asp-route-returnUrl="@Model.SignInReturnUrl"
+                           class="btn btn-outline-primary">
+                            Sign In Instead
+                        </a>
+                    </div>
+                }
+            </section>
+        </main>
+    }
+    else {
+        <section id="home">
+            @Html.TXTextControl().DocumentViewer(settings => {
+                settings.DocumentData = Model.Document;
+                settings.Dock = DocumentViewerSettings.DockStyle.Window;
+                settings.IsSelectionActivated = false;
+                settings.ShowThumbnailPane = true;
+                settings.SignatureSettings = new SignatureSettings() {
+                    OwnerName = Model.Envelope.Sender,
+                    ShowSignatureBar = true,
+                    SignerName = Model.Signer.Name,
+                    UniqueId = Model.Envelope.EnvelopeID,
+                    RedirectUrlAfterSignature = signatureCallbackUrl,
+                    SignatureBoxes = new SignatureBox[] {
+                        new SignatureBox("txsign_" + Model.Signer.Id) { SigningRequired = true, Style = SignatureBox.SignatureBoxStyle.Signature },
+                    }
+                };
+            }).Render()
+        </section>
+
+        <section id="reviewSigningReadyBar"
+                 class="review-sign-ready-bar"
+                 aria-live="polite"
+                 aria-hidden="true">
+            <div class="review-sign-ready-content">
+                <div class="review-sign-ready-icon" aria-hidden="true">
+                    <i class="bi bi-check2"></i>
+                </div>
+                <div class="review-sign-ready-copy">
+                    <h2>Ready to Finish?</h2>
+                    <p>You've completed the required fields. Review your work, then select Finish.</p>
+                </div>
+                <button id="reviewSigningFinishButton"
+                        type="button"
+                        class="btn btn-primary review-sign-ready-action">
+                    Finish
+                </button>
             </div>
-            <h1 id="reviewSigningResultTitle">Document Signed</h1>
-            <p id="reviewSigningResultMessage">The document has been signed successfully.</p>
-            <div id="reviewSigningResultDetail" class="auth-alert d-none" role="alert"></div>
-            @if (Model.CanCreateSignerAccount) {
-                <div id="reviewSignerAccountPrompt" class="review-signer-account-prompt d-none" data-account-prompt="create">
-                    <h2>Access your signed documents anytime</h2>
-                    <p>Create a signer account for <strong>@Model.Signer.Email</strong> to view and download completed documents later.</p>
-                    <a asp-page="/Review/CreateAccount" asp-route-id="@Model.AccessId" class="btn btn-primary">Create Account</a>
+        </section>
+
+        <section id="reviewSigningResult"
+                 class="review-sign-result d-none"
+                 aria-live="polite"
+                 data-signer-email="@Model.Signer.Email">
+            <div class="auth-card">
+                <div id="reviewSigningResultIcon" class="auth-icon" aria-hidden="true">
+                    <i class="bi bi-check2-circle"></i>
                 </div>
-            }
-            else if (Model.SignerAccountExists) {
-                <div id="reviewSignerAccountPrompt" class="review-signer-account-prompt d-none" data-account-prompt="signin">
-                    <p>An account already exists for <strong>@Model.Signer.Email</strong>.</p>
-                    <a asp-area="Identity" asp-page="/Account/Login" class="btn btn-outline-primary">Sign In</a>
-                </div>
-            }
-        </div>
-    </section>
+                <h1 id="reviewSigningResultTitle">Document Signed</h1>
+                <p id="reviewSigningResultMessage">The document has been signed successfully.</p>
+                <div id="reviewSigningResultDetail" class="auth-alert d-none" role="alert"></div>
+                @if (Model.CanCreateSignerAccount) {
+                    <div id="reviewSignerAccountPrompt" class="review-signer-account-prompt d-none" data-account-prompt="create">
+                        <h2>Access your signed documents anytime</h2>
+                        <p>Create a signer account for <strong>@Model.Signer.Email</strong> to view and download completed documents later.</p>
+                        <a asp-page="/Review/CreateAccount" asp-route-id="@Model.AccessId" class="btn btn-primary">Create Account</a>
+                    </div>
+                }
+                else if (Model.SignerAccountExists) {
+                    <div id="reviewSignerAccountPrompt" class="review-signer-account-prompt d-none" data-account-prompt="signin">
+                        <p>An account already exists for <strong>@Model.Signer.Email</strong>.</p>
+                        <a asp-area="Identity" asp-page="/Account/Login" class="btn btn-outline-primary">Sign In</a>
+                    </div>
+                }
+            </div>
+        </section>
+    }
 
     <script src="~/twitter-bootstrap/js/bootstrap.bundle.js"></script>
     <script src="~/js/site.min.js" asp-append-version="true"></script>
 
-    <div data-esign-init="review-signing"></div>
+    @if (!Model.RequiresEmailOtp) {
+        <div data-esign-init="review-signing"></div>
+    }
 </body>
 </html>

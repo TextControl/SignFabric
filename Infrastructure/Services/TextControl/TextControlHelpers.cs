@@ -339,9 +339,14 @@ namespace SignFabric.Infrastructure.Services.TextControl {
 
 					foreach (TXTextControl.SignatureField signatureField in tx.SignatureFields) {
 						if (signatureField.Name == "txsign_" + signer.Id) {
-							var signatureImage = Convert.FromBase64String(_store.GetSignatureImage(envelope.EnvelopeID, signer.Id));
-							var memStream = new MemoryStream(signatureImage, 0, signatureImage.Length, writable: false, publiclyVisible: true);
-							signatureField.Image = new SignatureImage(memStream);
+							try {
+								var signatureImage = Convert.FromBase64String(_store.GetSignatureImage(envelope.EnvelopeID, signer.Id));
+								var memStream = new MemoryStream(signatureImage, 0, signatureImage.Length, writable: false, publiclyVisible: true);
+								signatureField.Image = new SignatureImage(memStream);
+							}
+							catch {
+								// Some valid electronic signature flows do not return a separate rendered signature image.
+							}
 
 							signatures.Add(new DigitalSignature(cert, null, signatureField.Name));
 						}

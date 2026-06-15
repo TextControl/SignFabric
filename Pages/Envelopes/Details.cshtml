@@ -129,8 +129,14 @@
                                     }
                                 </td>
                                 <td>
-                                    @if (signer.SignerStatus == SignerStatus.Signed && signer.SignatureInformation != null) {
-                                        <img style="max-height: 40px" src="data:image/svg+xml;base64,@Model.GetSignatureImage(signer.Id)" />
+                                    @{
+                                        var signatureImage = Model.GetSignatureImage(signer.Id);
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(signatureImage)) {
+                                        <img style="max-height: 40px" src="data:image/svg+xml;base64,@signatureImage" />
+                                    }
+                                    else if (signer.SignerStatus == SignerStatus.Signed && signer.SignatureInformation != null) {
+                                        <span class="text-muted">Electronic signature</span>
                                     }
                                 </td>
                             </tr>
@@ -142,103 +148,7 @@
     }
 
     @if (Model.Envelope.Status == EnvelopeStatus.Signed) {
-        <div class="row mt-5">
-            <div class="col-md-8">
-                <h2 class="mb-4">Document Audit Trail <i class="bi bi-shield-check text-success" aria-hidden="true"></i></h2>
-
-                <div class="audit-trail-card">
-                    <div class="audit-trail-card-header">
-                        <i class="bi bi-clipboard-check-fill text-alignment" aria-hidden="true"></i> Envelope Information
-                    </div>
-                    <div class="audit-trail-card-body">
-                        <h5 class="audit-trail-card-title">Created</h5>
-                        <p>
-                            By: @Model.Envelope.Sender<br />
-                            Date: @Model.Envelope.Created
-                        </p>
-                    </div>
-                </div>
-
-                <div class="audit-trail-card">
-                    <div class="audit-trail-card-header">
-                        <i class="bi bi-send-fill text-alignment" aria-hidden="true"></i> Envelope Distribution
-                    </div>
-                    <div class="audit-trail-card-body">
-                        <h5 class="audit-trail-card-title">Sent</h5>
-                        <p>@Model.Envelope.Sent</p>
-                        <h5 class="audit-trail-card-title">Recipients</h5>
-
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th scope="col">Signer Name</th>
-                                    <th scope="col">E-Mail</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (Signer signer in Model.Envelope.Signers) {
-                                    <tr class="@(signer.SignerStatus == SignerStatus.Signed ? "table-success" : "table-primary")">
-                                        <td>@signer.Name</td>
-                                        <td>@signer.Email</td>
-                                    </tr>
-                                    <tr>
-                                        <td colspan="2">
-                                            <table class="table">
-                                                <thead>
-                                                    <tr>
-                                                        <th scope="col">Status</th>
-                                                        <th scope="col">Time Stamp</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    @foreach (StatusChanged statusChanged in signer.StatusChanged) {
-                                                        <tr>
-                                                            <td>@statusChanged.SignerStatus</td>
-                                                            <td>@statusChanged.TimeStamp</td>
-                                                        </tr>
-                                                    }
-                                                </tbody>
-                                            </table>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="audit-trail-card">
-                    <div class="audit-trail-card-header">
-                        <i class="bi bi-pen-fill text-alignment" aria-hidden="true"></i> Signature
-                    </div>
-                    <div class="audit-trail-card-body">
-                        <h5 class="audit-trail-card-title">Fully Signed</h5>
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th scope="col">Signer</th>
-                                    <th scope="col">E-Mail</th>
-                                    <th scope="col">IP Address</th>
-                                    <th scope="col">Time of Signature</th>
-                                    <th scope="col">Number of Pages</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (Signer signer in Model.Envelope.Signers.Where(signer => signer.SignatureInformation != null)) {
-                                    <tr>
-                                        <td>@signer.Name</td>
-                                        <td>@signer.Email</td>
-                                        <td>@signer.SignatureInformation.IPAddress</td>
-                                        <td>@signer.SignatureInformation.TimeStamp</td>
-                                        <td>@signer.SignatureInformation.NumPages</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <partial name="Review/_AuditTrail" model="new EnvelopeAuditTrailView { Envelope = Model.Envelope }" />
     }
 
 </section>

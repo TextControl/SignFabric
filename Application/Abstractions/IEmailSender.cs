@@ -10,6 +10,7 @@ namespace SignFabric.Application.Abstractions {
 	public interface IEmailSender {
 		Task SendSigningInvitationAsync(Envelope envelope, Signer signer, string signingUrl);
 		Task SendEnvelopeInvitationsAsync(Envelope envelope, string host, string userId);
+		Task SendSignerEmailOtpAsync(Envelope envelope, Signer signer, string code);
 		Task SendSignedConfirmationAsync(Envelope envelope, Signer signer);
 		Task SendFinalSignedNotificationAsync(Envelope envelope, byte[] finalDocument);
 		Task SendFinalizationFaultNotificationAsync(Envelope envelope);

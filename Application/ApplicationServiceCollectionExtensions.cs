@@ -26,6 +26,7 @@ namespace SignFabric.Application {
 					sp.GetRequiredService<IEmailSender>(),
 					sp.GetRequiredService<IAuditLogger>(),
 					sp.GetRequiredService<IStoreRepositoryFactory>(),
+					sp.GetRequiredService<ICertificateManagementService>(),
 					currentUser.UserId,
 					sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SigningWorkflowService>>());
 			});
