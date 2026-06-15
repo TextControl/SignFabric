@@ -3,127 +3,213 @@
 
 @{
     ViewData["Title"] = "Dashboard";
+
+    var envelopeCount = Model.Envelopes.Count;
+    var templateCount = Model.Templates.Count;
+    var primaryMetric = Model.IsSignerAccount ? Model.CompletedDocuments : Model.PendingSignatures;
+    var primaryMetricLabel = Model.IsSignerAccount ? "Completed documents" : "Pending signatures";
+    var completionRate = envelopeCount == 0 ? 0 : (int)Math.Round((double)Model.CompletedDocuments / envelopeCount * 100);
 }
 
-<section id="home" class="container section">
-
-    <h1>Dashboard</h1>
-    <p>@(Model.IsSignerAccount ? "Your completed documents are available below." : "Welcome! Here's your signing activity overview.")</p>
-
-    <div class="row mt-5">
-        <div class="col-md-@(Model.IsSignerAccount ? "6" : "3")">
-            <div class="box">
-                <p><strong>Pending Signatures</strong></p>
-                <h2>@Model.PendingSignatures</h2>
-            </div>
+<section id="home" class="container section dashboard-shell">
+    <div class="dashboard-hero">
+        <div class="dashboard-hero-main">
+            <span class="dashboard-kicker">Workspace Overview</span>
+            <h1>Dashboard</h1>
+            <p>@(Model.IsSignerAccount ? "Your completed documents are ready for review and download." : "Track signature work, launch new requests, and keep recent envelopes close at hand.")</p>
         </div>
-        <div class="col-md-@(Model.IsSignerAccount ? "6" : "3")">
-            <div class="box">
-                <p><strong>Completed Documents</strong></p>
-                <h2>@Model.CompletedDocuments</h2>
-            </div>
+
+        <div class="dashboard-hero-panel" aria-label="@primaryMetricLabel">
+            <span>@primaryMetricLabel</span>
+            <strong>@primaryMetric</strong>
+            <small>@(Model.IsSignerAccount ? "Available in your signed document archive" : "Awaiting recipient activity")</small>
         </div>
+    </div>
+
+    <div class="dashboard-metrics" aria-label="Signing activity metrics">
+        <a class="dashboard-metric dashboard-metric-warning" href="/envelopes?status=Sent">
+            <div class="dashboard-metric-icon">
+                <i class="bi bi-hourglass-split" aria-hidden="true"></i>
+            </div>
+            <div>
+                <span>Pending Signatures</span>
+                <strong>@Model.PendingSignatures</strong>
+            </div>
+        </a>
+        <a class="dashboard-metric dashboard-metric-success" href="/envelopes?status=Signed">
+            <div class="dashboard-metric-icon">
+                <i class="bi bi-check2-circle" aria-hidden="true"></i>
+            </div>
+            <div>
+                <span>Completed Documents</span>
+                <strong>@Model.CompletedDocuments</strong>
+            </div>
+        </a>
         @if (!Model.IsSignerAccount) {
-            <div class="col-md-3">
-                <div class="box">
-                    <p><strong>Total Templates</strong></p>
-                    <h2>@Model.Templates.Count</h2>
+            <a class="dashboard-metric dashboard-metric-info" href="/templates">
+                <div class="dashboard-metric-icon">
+                    <i class="bi bi-layers" aria-hidden="true"></i>
                 </div>
-            </div>
-            <div class="col-md-3">
-                <div class="box">
-                    <p><strong>Total Envelopes</strong></p>
-                    <h2>@Model.Envelopes.Count</h2>
+                <div>
+                    <span>Total Templates</span>
+                    <strong>@templateCount</strong>
                 </div>
-            </div>
+            </a>
+            <a class="dashboard-metric dashboard-metric-primary" href="/envelopes">
+                <div class="dashboard-metric-icon">
+                    <i class="bi bi-folder2-open" aria-hidden="true"></i>
+                </div>
+                <div>
+                    <span>Total Envelopes</span>
+                    <strong>@envelopeCount</strong>
+                </div>
+            </a>
         }
     </div>
 
     @if (!Model.IsSignerAccount) {
-        <div class="row mt-5">
-        <div class="col-md-12">
-            <div class="box highlight">
-                <h4>Quick Actions</h4>
+        <div class="dashboard-action-band">
+            <div class="dashboard-action-copy">
+                <span>Quick Actions</span>
+                <strong>Start or reuse a signing workflow</strong>
+            </div>
+            <div class="dashboard-action-buttons">
                 @if (Model.CanRequestSignatures) {
-                    <a asp-page="/New/Index" class="btn btn-success me-2">
-                        <i class="bi bi-send-fill align-middle" aria-hidden="true"></i> New Envelope
+                    <a asp-page="/New/Index" class="btn btn-success">
+                        <i class="bi bi-send-fill align-middle" aria-hidden="true"></i>
+                        New Envelope
                     </a>
                 }
                 else {
-                    <button type="button" class="btn btn-outline-secondary me-2" disabled title="A signing certificate is required before signatures can be requested.">
-                        <i class="bi bi-send-fill align-middle" aria-hidden="true"></i> New Envelope
+                    <button type="button" class="btn btn-outline-secondary" disabled title="A signing certificate is required before signatures can be requested.">
+                        <i class="bi bi-send-fill align-middle" aria-hidden="true"></i>
+                        New Envelope
                     </button>
                 }
-                <a asp-page="/Templates/Create" class="btn btn-primary me-2">
-                    <i class="bi bi-plus-lg align-middle" aria-hidden="true"></i> New Template
+                <a asp-page="/Templates/Create" class="btn btn-primary">
+                    <i class="bi bi-plus-lg align-middle" aria-hidden="true"></i>
+                    New Template
                 </a>
-                <a asp-page="/Templates/Index" class="btn btn-info me-2">
-                    <i class="bi bi-file-earmark-text align-middle" aria-hidden="true"></i> My Templates
+                <a asp-page="/Contracts/Create" class="btn btn-primary">
+                    <i class="bi bi-file-earmark-text align-middle" aria-hidden="true"></i>
+                    New Contract
                 </a>
-                @if (!Model.CanRequestSignatures) {
-                    <div class="alert alert-warning certificate-required-alert mt-3 mb-0" role="alert">
-                        <strong>A signing certificate is required to request signatures.</strong>
-                        <p class="mb-0 mt-2">Upload and activate a local PFX certificate or configure Azure Key Vault in the admin portal.</p>
-                        @if (User.IsInRole(SignFabric.Application.Identity.AppRoles.Admin)) {
-                            <a href="/admin" class="btn btn-warning mt-3"><strong>Open Admin Portal</strong></a>
-                        }
-                    </div>
+            </div>
+        </div>
+
+        @if (!Model.CanRequestSignatures) {
+            <div class="alert alert-warning certificate-required-alert dashboard-certificate-alert" role="alert">
+                <strong>A signing certificate is required to request signatures.</strong>
+                <p class="mb-0 mt-2">Upload and activate a local PFX certificate or configure Azure Key Vault in the admin portal.</p>
+                @if (User.IsInRole(SignFabric.Application.Identity.AppRoles.Admin)) {
+                    <a href="/admin" class="btn btn-warning mt-3"><strong>Open Admin Portal</strong></a>
                 }
             </div>
-        </div>
-    </div>
+        }
     }
+
+    <div class="dashboard-section-heading">
+        <div>
+            <span>@(Model.IsSignerAccount ? "Archive" : "Activity")</span>
+            <h2>@(Model.IsSignerAccount ? "Signed Documents" : "Recent Envelopes")</h2>
+        </div>
+        @if (!Model.IsSignerAccount) {
+            <div class="dashboard-completion" aria-label="Completed documents rate">
+                <span>@completionRate%</span>
+                <small>completed</small>
+            </div>
+        }
+    </div>
 
     @if (Model.Envelopes.Count > 0) {
-        <div class="row mt-5">
-            <div class="col-md-12">
-                <h2 class="mb-3">@(Model.IsSignerAccount ? "Signed Documents" : "Recent Envelopes")</h2>
-                <table class="table table-hover mt-5" data-esign-table="overview" data-page-size="10">
-                    <thead>
+        <div class="dashboard-table-wrap">
+            <table class="table table-hover dashboard-table" data-esign-table="overview" data-page-size="10">
+                <thead>
+                    <tr>
+                        <th class="align-middle" scope="col">Subject</th>
+                        <th class="align-middle" scope="col">Status</th>
+                        <th class="align-middle" scope="col">Recipients</th>
+                        <th class="align-middle" scope="col">Created</th>
+                        <th class="align-middle" scope="col" data-sortable="false"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var env in Model.Envelopes) {
                         <tr>
-                            <th class="align-middle" scope="col">Subject</th>
-                            <th class="align-middle" scope="col">Status</th>
-                            <th class="align-middle" scope="col">Recipients</th>
-                            <th class="align-middle" scope="col">Created</th>
-                            <th class="align-middle" scope="col" data-sortable="false"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var env in Model.Envelopes) {
-                            <tr>
-                                <th class="align-middle" scope="row"><a asp-page="/Envelopes/Details" asp-route-id="@env.EnvelopeID">@env.Name</a></th>
-                                <td class="align-middle">@env.Status</td>
-                                <td class="align-middle">@env.Signers.Count</td>
-                                <td class="align-middle">@env.Created</td>
-                                <td class="align-middle">
-                                    <div class="btn-group">
-                                        <a asp-page="/Envelopes/Details" asp-route-id="@env.EnvelopeID" class="btn btn-primary">Summary</a>
-                                        <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
-                                            <span class="visually-hidden">Toggle Dropdown</span>
-                                        </button>
+                            <th class="align-middle" scope="row">
+                                <span class="dashboard-subject-cell">
+                                    <span class="dashboard-document-icon">
+                                        <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
+                                    </span>
+                                    <a asp-page="/Envelopes/Details" asp-route-id="@env.EnvelopeID">@env.Name</a>
+                                </span>
+                            </th>
+                            <td class="align-middle">
+                                <span class="dashboard-status @GetEnvelopeStatusClass(env.Status)">
+                                    <i class="bi @GetEnvelopeStatusIcon(env.Status)" aria-hidden="true"></i>
+                                    @env.Status
+                                </span>
+                            </td>
+                            <td class="align-middle">
+                                <span class="dashboard-recipient-count">@env.Signers.Count</span>
+                            </td>
+                            <td class="align-middle">@env.Created</td>
+                            <td class="align-middle text-end">
+                                <div class="btn-group">
+                                    <a asp-page="/Envelopes/Details" asp-route-id="@env.EnvelopeID" class="btn btn-primary">Summary</a>
+                                    <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <span class="visually-hidden">Toggle Dropdown</span>
+                                    </button>
 
-                                        <ul class="dropdown-menu">
-                                            @if (!Model.IsSignerAccount && env.Status == EnvelopeStatus.Incomplete) {
-                                                <li><a asp-page="/Envelopes/Create" asp-route-id="@env.EnvelopeID" class="dropdown-item">Continue</a></li>
-                                            }
-                                            @if (env.Status == EnvelopeStatus.Signed) {
-                                                <li><a target="_blank" asp-page="/Envelopes/Details" asp-page-handler="Download" asp-route-id="@env.EnvelopeID" class="dropdown-item">Download</a></li>
-                                            }
-                                            @if (!Model.IsSignerAccount && env.Status == EnvelopeStatus.Sent) {
-                                                <li><a asp-page="/Envelopes/Create" asp-route-id="@env.EnvelopeID" class="dropdown-item">Resend</a></li>
-                                            }
-                                            @if (env.Status == EnvelopeStatus.Faulted) {
-                                                <li><a asp-page="/Envelopes/Details" asp-route-id="@env.EnvelopeID" class="dropdown-item">View Error</a></li>
-                                            }
-                                        </ul>
-                                    </div>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        @if (!Model.IsSignerAccount && env.Status == EnvelopeStatus.Incomplete) {
+                                            <li><a asp-page="/Envelopes/Create" asp-route-id="@env.EnvelopeID" class="dropdown-item">Continue</a></li>
+                                        }
+                                        @if (env.Status == EnvelopeStatus.Signed) {
+                                            <li><a target="_blank" asp-page="/Envelopes/Details" asp-page-handler="Download" asp-route-id="@env.EnvelopeID" class="dropdown-item">Download</a></li>
+                                        }
+                                        @if (!Model.IsSignerAccount && env.Status == EnvelopeStatus.Sent) {
+                                            <li><a asp-page="/Envelopes/Create" asp-route-id="@env.EnvelopeID" class="dropdown-item">Resend</a></li>
+                                        }
+                                        @if (env.Status == EnvelopeStatus.Faulted) {
+                                            <li><a asp-page="/Envelopes/Details" asp-route-id="@env.EnvelopeID" class="dropdown-item">View Error</a></li>
+                                        }
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
         </div>
     }
-
+    else {
+        <div class="dashboard-empty-state">
+            <i class="bi bi-inbox" aria-hidden="true"></i>
+            <h2>No envelopes yet</h2>
+            <p>@(Model.IsSignerAccount ? "Signed documents will appear here once they are available." : "Create your first envelope to start tracking signing activity here.")</p>
+        </div>
+    }
 </section>
+
+@functions {
+    private static string GetEnvelopeStatusClass(EnvelopeStatus status) {
+        return status switch {
+            EnvelopeStatus.Signed => "dashboard-status-signed",
+            EnvelopeStatus.Sent => "dashboard-status-sent",
+            EnvelopeStatus.Faulted => "dashboard-status-faulted",
+            EnvelopeStatus.Incomplete => "dashboard-status-incomplete",
+            _ => "dashboard-status-draft"
+        };
+    }
+
+    private static string GetEnvelopeStatusIcon(EnvelopeStatus status) {
+        return status switch {
+            EnvelopeStatus.Signed => "bi-check2-circle",
+            EnvelopeStatus.Sent => "bi-send",
+            EnvelopeStatus.Faulted => "bi-exclamation-triangle",
+            EnvelopeStatus.Incomplete => "bi-pencil-square",
+            _ => "bi-clock"
+        };
+    }
+}

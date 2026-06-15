@@ -34,7 +34,8 @@
                         Delete Selected
                     </button>
                 </div>
-                <table class="table table-hover mt-5" data-esign-table="overview" data-page-size="10">
+                <div class="dashboard-table-wrap">
+                <table class="table table-hover dashboard-table" data-esign-table="overview" data-page-size="10">
                     <thead>
                         <tr>
                             <th class="align-middle" scope="col" data-sortable="false">
@@ -60,11 +61,16 @@
                                            aria-label="Select template @template.Name" />
                                 </td>
                                 <th class="align-middle" scope="row">
-                                    <a href="/templates/details/@template.TemplateID">@template.Name</a>
+                                    <span class="dashboard-subject-cell">
+                                        <span class="dashboard-document-icon">
+                                            <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
+                                        </span>
+                                        <a href="/templates/details/@template.TemplateID">@template.Name</a>
+                                    </span>
                                 </th>
                                 
                                 <td class="align-middle">@template.Created</td>
-                                <td class="align-middle">
+                                <td class="align-middle text-end">
                                     <a href="/templates/details/@template.TemplateID" class="btn btn-sm btn-primary">Summary</a>
                                 </td>
                                 <td class="align-middle">
@@ -81,6 +87,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
             </form>
         </div>
     </div>

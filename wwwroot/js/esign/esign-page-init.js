@@ -101,6 +101,7 @@
         var state = {
             page: 1,
             filter: "",
+            status: getRequestedStatusFilter(),
             sortColumn: -1,
             sortDirection: "asc"
         };
@@ -125,6 +126,11 @@
         ].join("");
 
         table.parentNode.insertBefore(toolbar, table);
+
+        var statusFilterBar = createStatusFilterBar();
+        if (statusFilterBar) {
+            table.parentNode.insertBefore(statusFilterBar, table);
+        }
 
         var filterInput = toolbar.querySelector("input");
         var pageSizeSelect = toolbar.querySelector("select");
@@ -198,6 +204,101 @@
             return cell ? cell.textContent.trim() : "";
         }
 
+        function getRequestedStatusFilter() {
+            var paramName = table.dataset.statusFilterParam || "status";
+
+            try {
+                return (new URLSearchParams(window.location.search).get(paramName) || "").trim();
+            }
+            catch (_) {
+                return "";
+            }
+        }
+
+        function getRowStatus(row) {
+            var status = row.querySelector(".dashboard-status");
+            return status ? status.textContent.trim() : "";
+        }
+
+        function getStatusClass(statusElement) {
+            var className = [].slice.call(statusElement.classList).filter(function (name) {
+                return name.indexOf("dashboard-status-") === 0;
+            })[0];
+
+            return className || "dashboard-status-draft";
+        }
+
+        function createStatusFilterBar() {
+            var statuses = [];
+            var seen = {};
+
+            rows.forEach(function (row) {
+                var status = row.querySelector(".dashboard-status");
+                if (!status) return;
+
+                var label = status.textContent.trim();
+                if (!label || seen[label]) return;
+
+                seen[label] = true;
+                statuses.push({
+                    label: label,
+                    className: getStatusClass(status)
+                });
+            });
+
+            if (state.status && !seen[state.status]) {
+                state.status = "";
+            }
+
+            if (statuses.length < 2) return null;
+
+            var bar = document.createElement("div");
+            bar.className = "table-tools";
+            bar.setAttribute("aria-label", "Filter by status");
+
+            var group = document.createElement("div");
+            group.className = "table-tools-end";
+
+            var allButton = createStatusFilterButton("All", "dashboard-status-draft", "");
+            group.appendChild(allButton);
+
+            statuses.forEach(function (status) {
+                group.appendChild(createStatusFilterButton(status.label, status.className, status.label));
+            });
+
+            bar.appendChild(group);
+            return bar;
+        }
+
+        function createStatusFilterButton(label, className, value) {
+            var button = document.createElement("button");
+            button.type = "button";
+            button.className = "dashboard-status " + className + " border border-2";
+            button.textContent = label;
+            button.setAttribute("aria-pressed", value === state.status ? "true" : "false");
+            button.addEventListener("click", function () {
+                state.status = state.status === value ? "" : value;
+                state.page = 1;
+                render();
+            });
+
+            return button;
+        }
+
+        function renderStatusFilters() {
+            if (!statusFilterBar) return;
+
+            [].slice.call(statusFilterBar.querySelectorAll("button")).forEach(function (button) {
+                var isActive = (button.textContent.trim() === "All" && !state.status) ||
+                    button.textContent.trim() === state.status;
+
+                button.setAttribute("aria-pressed", isActive ? "true" : "false");
+                button.classList.toggle("active", isActive);
+                button.classList.toggle("border-primary", isActive);
+                button.classList.toggle("border-light", !isActive);
+            });
+        }
+
         function getSortValue(row, index) {
             var text = getCellValue(row, index);
             var timestamp = Date.parse(text);
@@ -213,7 +314,10 @@
 
         function filteredRows() {
             var result = rows.filter(function (row) {
-                return !state.filter || row.textContent.toLowerCase().indexOf(state.filter) !== -1;
+                var matchesText = !state.filter || row.textContent.toLowerCase().indexOf(state.filter) !== -1;
+                var matchesStatus = !state.status || getRowStatus(row) === state.status;
+
+                return matchesText && matchesStatus;
             });
 
             if (state.sortColumn >= 0) {
@@ -302,6 +406,7 @@
             var last = Math.min(start + visible.length, result.length);
             meta.textContent = "Showing " + first + "-" + last + " of " + result.length;
 
+            renderStatusFilters();
             renderHeaders();
             renderPager(result.length, totalPages);
         }

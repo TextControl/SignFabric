@@ -34,7 +34,8 @@
                         Delete Selected
                     </button>
                 </div>
-                <table class="table table-hover mt-5" data-esign-table="overview" data-page-size="10">
+                <div class="dashboard-table-wrap">
+                <table class="table table-hover dashboard-table" data-esign-table="overview" data-page-size="10">
                     <thead>
                         <tr>
                             <th class="align-middle" scope="col" data-sortable="false">
@@ -45,7 +46,6 @@
                             </th>
                             <th class="align-middle" scope="col">Subject</th>
                             <th class="align-middle" scope="col">Status</th>
-                            <th class="align-middle" scope="col" data-sortable="false"></th>
                             <th class="align-middle" scope="col">Created</th>
                             <th class="align-middle" scope="col" data-sortable="false"></th>
                             <th class="align-middle" scope="col" data-sortable="false">Delete</th>
@@ -61,19 +61,22 @@
                                            value="@contract.ContractID"
                                            aria-label="Select contract @contract.Name" />
                                 </td>
-                                <th class="align-middle" scope="row"><a href="/contracts/details/@contract.ContractID">@contract.Name</a> @if (contract.Status == ContractStatus.Changed){ <span class="badge rounded-pill bg-warning text-dark">Changed</span> }</th>
-                                <td class="align-middle">@contract.Status</td>
+                                <th class="align-middle" scope="row">
+                                    <span class="dashboard-subject-cell">
+                                        <span class="dashboard-document-icon">
+                                            <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
+                                        </span>
+                                        <a href="/contracts/details/@contract.ContractID">@contract.Name</a>
+                                    </span>
+                                </th>
                                 <td class="align-middle">
-                                    @{ if (contract.Status == ContractStatus.Sent) {
-                                            <i class="bi bi-send-fill text-success" aria-hidden="true"></i>
-                                        }
-                                        else if (contract.Status == ContractStatus.Closed) {
-                                            <i class="bi bi-check-lg text-success" aria-hidden="true"></i>
-                                        }
-                                    }
+                                    <span class="dashboard-status @GetContractStatusClass(contract.Status)">
+                                        <i class="bi @GetContractStatusIcon(contract.Status)" aria-hidden="true"></i>
+                                        @contract.Status
+                                    </span>
                                 </td>
                                 <td class="align-middle">@contract.Created</td>
-                                <td class="align-middle">
+                                <td class="align-middle text-end">
                                     <div class="btn-group">
                                         <a href="/contracts/details/@contract.ContractID" class="btn btn-primary">Summary</a>
                                     </div>
@@ -92,6 +95,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
             </form>
         </div>
     </div>
@@ -225,4 +229,26 @@
             updateBulkSelectionState();
         }());
     </script>
+}
+
+@functions {
+    private static string GetContractStatusClass(ContractStatus status) {
+        return status switch {
+            ContractStatus.Accepted => "dashboard-status-signed",
+            ContractStatus.Closed => "dashboard-status-signed",
+            ContractStatus.Sent => "dashboard-status-sent",
+            ContractStatus.Changed => "dashboard-status-incomplete",
+            _ => "dashboard-status-draft"
+        };
+    }
+
+    private static string GetContractStatusIcon(ContractStatus status) {
+        return status switch {
+            ContractStatus.Accepted => "bi-check2-circle",
+            ContractStatus.Closed => "bi-check2-circle",
+            ContractStatus.Sent => "bi-send",
+            ContractStatus.Changed => "bi-exclamation-circle",
+            _ => "bi-clock"
+        };
+    }
 }

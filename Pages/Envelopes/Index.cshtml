@@ -27,13 +27,12 @@
 
     <div class="row">
         <div class="col-12">
-            <div>
-                <table class="table table-hover mt-5" data-esign-table="overview" data-page-size="10">
+            <div class="dashboard-table-wrap mt-5">
+                <table class="table table-hover dashboard-table" data-esign-table="overview" data-page-size="10">
                     <thead>
                         <tr>
                             <th class="align-middle" scope="col">Subject</th>
                             <th class="align-middle" scope="col">Status</th>
-                            <th class="align-middle" scope="col" data-sortable="false"></th>
                             <th class="align-middle" scope="col">Created</th>
                             <th class="align-middle" scope="col" data-sortable="false"></th>
                         </tr>
@@ -41,29 +40,29 @@
                     <tbody>
                         @foreach (var envelope in @Model.Envelopes) {
                             <tr>
-                                <th class="align-middle" scope="row"><a asp-page="/Envelopes/Details" asp-route-id="@envelope.EnvelopeID">@envelope.Name</a></th>
-                                <td class="align-middle">@envelope.Status</td>
+                                <th class="align-middle" scope="row">
+                                    <span class="dashboard-subject-cell">
+                                        <span class="dashboard-document-icon">
+                                            <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
+                                        </span>
+                                        <a asp-page="/Envelopes/Details" asp-route-id="@envelope.EnvelopeID">@envelope.Name</a>
+                                    </span>
+                                </th>
                                 <td class="align-middle">
-                                    @{ if (envelope.Status == EnvelopeStatus.Sent) {
-                                        <i class="bi bi-send-fill text-success" aria-hidden="true"></i>
-                                    }
-                                    else if (envelope.Status == EnvelopeStatus.Signed) {
-                                        <i class="bi bi-check-lg text-success" aria-hidden="true"></i>
-                                    }
-                                    else if (envelope.Status == EnvelopeStatus.Faulted) {
-                                        <i class="bi bi-exclamation-triangle text-danger" aria-hidden="true"></i>
-                                    }
-                                    }
+                                    <span class="dashboard-status @GetEnvelopeStatusClass(envelope.Status)">
+                                        <i class="bi @GetEnvelopeStatusIcon(envelope.Status)" aria-hidden="true"></i>
+                                        @envelope.Status
+                                    </span>
                                 </td>
                                 <td class="align-middle">@envelope.Created</td>
-                                <td class="align-middle">
+                                <td class="align-middle text-end">
                                     <div class="btn-group">
                                         <a asp-page="/Envelopes/Details" asp-route-id="@envelope.EnvelopeID" class="btn btn-primary">Summary</a>
                                         <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
                                             <span class="visually-hidden">Toggle Dropdown</span>
                                         </button>
 
-                                        <ul class="dropdown-menu">
+                                        <ul class="dropdown-menu dropdown-menu-end">
                                             @if (!Model.IsSignerAccount && envelope.Status == EnvelopeStatus.Incomplete) {
                                                 <li><a asp-page="/Envelopes/Create" asp-route-id="@envelope.EnvelopeID" class="dropdown-item">Continue</a></li>
                                             }
@@ -85,3 +84,25 @@
     </div>
 
 </section>
+
+@functions {
+    private static string GetEnvelopeStatusClass(EnvelopeStatus status) {
+        return status switch {
+            EnvelopeStatus.Signed => "dashboard-status-signed",
+            EnvelopeStatus.Sent => "dashboard-status-sent",
+            EnvelopeStatus.Faulted => "dashboard-status-faulted",
+            EnvelopeStatus.Incomplete => "dashboard-status-incomplete",
+            _ => "dashboard-status-draft"
+        };
+    }
+
+    private static string GetEnvelopeStatusIcon(EnvelopeStatus status) {
+        return status switch {
+            EnvelopeStatus.Signed => "bi-check2-circle",
+            EnvelopeStatus.Sent => "bi-send",
+            EnvelopeStatus.Faulted => "bi-exclamation-triangle",
+            EnvelopeStatus.Incomplete => "bi-pencil-square",
+            _ => "bi-clock"
+        };
+    }
+}
