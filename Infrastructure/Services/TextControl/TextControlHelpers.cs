@@ -326,7 +326,7 @@ namespace SignFabric.Infrastructure.Services.TextControl {
 
 				int i = 0;
 
-				foreach (Signer signer in envelope.Signers) {
+				foreach (Signer signer in envelope.Signers.Where(signer => signer.Role == RecipientRole.Signer)) {
 						
 					svr.Load(Convert.FromBase64String(_store.GetSignedDocument(envelope.EnvelopeID, signer.Id)), BinaryStreamType.InternalUnicodeFormat);
 

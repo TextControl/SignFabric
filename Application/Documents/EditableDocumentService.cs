@@ -49,7 +49,7 @@ namespace SignFabric.Application.Services {
 						case "envelope":
 							var envelopeStore = _storeFactory.CreateEnvelopeRepository(userId);
 							var envelope = envelopeStore.GetEnvelopes(documentId).FirstOrDefault() ?? throw new InvalidOperationException("Envelope not found");
-							envelope.ContainsSignatureBoxes = _txService.ContainsSignatureBoxes(savedDocumentBase64, envelope.Signers);
+							envelope.ContainsSignatureBoxes = _txService.ContainsSignatureBoxes(savedDocumentBase64, envelope.Signers.Where(IsSignatureRecipient).ToList());
 							envelopeStore.UpdateFile(envelope, stream);
 							envelopeStore.AddThumbnail(envelope, thumbnail);
 							envelopeStore.Update(envelope.EnvelopeID, envelope);
@@ -74,5 +74,8 @@ namespace SignFabric.Application.Services {
 				}
 			});
 		}
+
+		private static bool IsSignatureRecipient(Signer signer) =>
+			signer.Role == RecipientRole.Signer;
 	}
 }

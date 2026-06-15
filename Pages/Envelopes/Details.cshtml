@@ -3,6 +3,7 @@
 
 @{
     ViewData["Title"] = "Envelope Summary";
+    ViewData["RecipientTokenView"] = Model.IsApprovalView || Model.IsRecipientStatusView;
 
     byte[] octets = System.Text.Encoding.ASCII.GetBytes(Model.Envelope.EnvelopeID + ":" + Model.Envelope.UserID);
     var envelope_code = Convert.ToBase64String(octets);
@@ -15,10 +16,12 @@
 <section id="home" class="container section">
 
     <div class="mb-3">
-        <a asp-page="/Envelopes/Index" class="btn btn-light envelope-summary-back">
-            <i class="bi bi-arrow-left" aria-hidden="true"></i>
-            Back
-        </a>
+        @if (!Model.IsApprovalView && !Model.IsRecipientStatusView) {
+            <a asp-page="/Envelopes/Index" class="btn btn-light envelope-summary-back">
+                <i class="bi bi-arrow-left" aria-hidden="true"></i>
+                Back
+            </a>
+        }
     </div>
 
     <div class="envelope-summary-panel">
@@ -68,7 +71,44 @@
                 </div>
             }
 
+            @if (Model.IsApprovalView) {
+                <div class="envelope-approval-row">
+                    @if (Model.ApprovalRecipient?.SignerStatus == SignerStatus.Signed) {
+                        <div class="alert alert-success mb-0" role="status">
+                            Your approval has been recorded.
+                        </div>
+                    }
+                    else if (Model.ApprovalNotActiveYet) {
+                        <div class="alert alert-info mb-0" role="status">
+                            This approval step is waiting for an earlier workflow step.
+                        </div>
+                    }
+                    else {
+                        <form method="post" class="approval-action-panel">
+                            <input type="hidden" name="approvalId" value="@Model.ApprovalAccessId" />
+                            @if (!string.IsNullOrWhiteSpace(Model.ApprovalErrorMessage)) {
+                                <div class="alert alert-danger" role="alert">@Model.ApprovalErrorMessage</div>
+                            }
+                            <label for="approvalComment" class="form-label">Approval comment</label>
+                            <textarea id="approvalComment" name="comment" class="form-control" rows="3" placeholder="Optional comment"></textarea>
+                            <div class="d-flex flex-wrap gap-2 mt-3">
+                                <button type="submit" asp-page-handler="Approve" asp-route-id="@Model.Envelope.EnvelopeID" class="btn btn-primary">Approve</button>
+                                <button type="submit" asp-page-handler="Decline" asp-route-id="@Model.Envelope.EnvelopeID" class="btn btn-outline-danger">Decline</button>
+                            </div>
+                        </form>
+                    }
+                </div>
+            }
+            else if (Model.IsRecipientStatusView) {
+                <div class="envelope-approval-row">
+                    <div class="alert alert-info mb-0" role="status">
+                        You are viewing this workflow as @Model.StatusRecipient?.Role.
+                    </div>
+                </div>
+            }
+
             <div class="envelope-summary-actions">
+
                 @if (!Model.IsSignerAccount && (Model.Envelope.Status == EnvelopeStatus.Incomplete || Model.Envelope.Status == EnvelopeStatus.New)) {
                     <a asp-page="/Envelopes/Create" asp-route-id="@Model.Envelope.EnvelopeID" class="btn btn-success">
                         <i class="bi bi-pencil-square" aria-hidden="true"></i>
@@ -76,13 +116,13 @@
                     </a>
                 }
 
-                @if (Model.Envelope.Status == EnvelopeStatus.Signed) {
+                @if (!Model.IsApprovalView && !Model.IsRecipientStatusView && Model.Envelope.Status == EnvelopeStatus.Signed) {
                     <a target="_blank" asp-page="/Envelopes/Details" asp-page-handler="Download" asp-route-id="@Model.Envelope.EnvelopeID" class="btn btn-success">
                         <i class="bi bi-download" aria-hidden="true"></i>
                         Download Signed PDF
                     </a>
 
-                    @if (!Model.IsSignerAccount) {
+                    @if (!Model.IsSignerAccount && !Model.IsApprovalView) {
                         <a asp-page="/Envelopes/Create" asp-route-id="@Model.Envelope.EnvelopeID" class="btn btn-outline-success">
                             <i class="bi bi-send" aria-hidden="true"></i>
                             Resend
@@ -115,7 +155,7 @@
                                 <td>@signer.Name</td>
                                 <td>@signer.Email</td>
                                 <td class="@GetSignerStatusTableClass(signer.SignerStatus)">
-                                    <span class="badge rounded-pill @GetSignerStatusBadgeClass(signer.SignerStatus)">@signer.SignerStatus</span>
+                                    <span class="badge rounded-pill @GetSignerStatusBadgeClass(signer.SignerStatus)">@GetRecipientStatusLabel(signer)</span>
 
                                     @{
                                         var statusChanged = signer.StatusChanged?
@@ -134,6 +174,9 @@
                                     }
                                     @if (!string.IsNullOrWhiteSpace(signatureImage)) {
                                         <img style="max-height: 40px" src="data:image/svg+xml;base64,@signatureImage" />
+                                    }
+                                    else if (signer.Role == RecipientRole.Approver && signer.SignerStatus == SignerStatus.Signed) {
+                                        <span class="text-muted">Approved</span>
                                     }
                                     else if (signer.SignerStatus == SignerStatus.Signed && signer.SignatureInformation != null) {
                                         <span class="text-muted">Electronic signature</span>
@@ -154,6 +197,18 @@
 </section>
 
 @functions {
+    private static string GetRecipientStatusLabel(Signer signer) {
+        if (signer.Role == RecipientRole.Approver && signer.SignerStatus == SignerStatus.Signed) {
+            return "Approved";
+        }
+
+        if (signer.Role == RecipientRole.Approver && signer.SignerStatus == SignerStatus.None) {
+            return "Pending Approval";
+        }
+
+        return signer.SignerStatus.ToString();
+    }
+
     private static string GetSignerStatusTableClass(SignerStatus status) {
         return status switch {
             SignerStatus.Signed => "table-success",

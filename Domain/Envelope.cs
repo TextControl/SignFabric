@@ -15,6 +15,7 @@ namespace SignFabric.Domain {
 		public string SigningCertificateId { get; set; }
 		public SigningCertificateEvidence SigningCertificate { get; set; }
 		public List<Signer> Signers { get; set; } = new List<Signer>();
+		public EnvelopeWorkflowMode WorkflowMode { get; set; }
 		public EnvelopeStatus Status { get; set; }
 		public string FaultMessage { get; set; }
 		public bool ContainsSignatureBoxes { get; set; }
@@ -45,6 +46,15 @@ namespace SignFabric.Domain {
 		public string Id { get; set; }
 		public string Name { get; set; }
 		public string Email { get; set; }
+		public RecipientRole Role { get; set; }
+		public int RoutingOrder { get; set; } = 1;
+		public bool RoutingActive { get; set; }
+		public DateTime? RoutingActivatedAt { get; set; }
+		public DateTime? CompletedAt { get; set; }
+		public string ApprovalComment { get; set; }
+		public string DeclineReason { get; set; }
+		public string ApprovalIPAddress { get; set; }
+		public string ApprovalUserAgent { get; set; }
 		public bool RequireEmailOtp { get; set; }
 		public bool EmailOtpVerified { get; set; }
 		public DateTime? EmailOtpSentAt { get; set; }
@@ -72,6 +82,19 @@ namespace SignFabric.Domain {
 
 		}
 		public List<StatusChanged> StatusChanged { get; set; } = new List<StatusChanged>();
+
+		public void RecordStatusEvent(SignerStatus status, DateTime? timestamp = null) {
+			if (!StatusChanged.Any(item => item.SignerStatus == status)) {
+				StatusChanged.Add(new StatusChanged() {
+					SignerStatus = status,
+					TimeStamp = timestamp ?? DateTime.Now
+				});
+			}
+
+			if (status > m_signerStatus) {
+				m_signerStatus = status;
+			}
+		}
 	}
 
 	public class StatusChanged {
@@ -91,6 +114,18 @@ namespace SignFabric.Domain {
 		EmailLink,
 		EmailOtp,
 		SignerAccount
+	}
+
+	public enum EnvelopeWorkflowMode {
+		Simple,
+		Complex
+	}
+
+	public enum RecipientRole {
+		Signer,
+		Approver,
+		Cc,
+		Observer
 	}
 
 	public enum EnvelopeStatus {

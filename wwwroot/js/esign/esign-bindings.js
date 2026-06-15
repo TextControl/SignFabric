@@ -35,6 +35,9 @@
             case "apply-field-assignments":
                 TextControl.esign.applyRecipientFieldAssignments();
                 break;
+            case "save-workflow":
+                TextControl.esign.saveWorkflow(element.dataset.envelopeId);
+                break;
             case "next-step":
                 TextControl.esign.nextStep(element.dataset.target);
                 break;

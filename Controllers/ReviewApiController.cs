@@ -47,7 +47,8 @@ namespace SignFabric.Controllers {
 					envelopeId,
 					signerId,
 					Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
-					userAgent);
+					userAgent,
+					HttpContext.Request.Scheme + "://" + HttpContext.Request.Host);
 
 				return Ok(true);
 			} catch (Exception ex) {

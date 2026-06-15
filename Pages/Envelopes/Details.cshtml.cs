@@ -19,7 +19,7 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace SignFabric.Pages.Envelopes {
-	[Authorize]
+	[AllowAnonymous]
 	public class DetailsModel : PageModel {
 		private readonly IDocumentPageService _pageService;
 		private readonly ISigningWorkflowService _signingWorkflowService;
@@ -29,6 +29,13 @@ namespace SignFabric.Pages.Envelopes {
 		public Envelope Envelope { get; set; }
 		public string ThumbnailSvg { get; set; }
 		public bool IsSignerAccount { get; set; }
+		public bool IsApprovalView { get; set; }
+		public bool IsRecipientStatusView { get; set; }
+		public bool ApprovalNotActiveYet { get; set; }
+		public string ApprovalAccessId { get; set; }
+		public Signer ApprovalRecipient { get; set; }
+		public Signer StatusRecipient { get; set; }
+		public string ApprovalErrorMessage { get; set; }
 		private Dictionary<string, string> _signatureImages = new();
 
 		public DetailsModel(
@@ -42,10 +49,22 @@ namespace SignFabric.Pages.Envelopes {
 			_userId = currentUserContext.UserId;
 		}
 
-		public async Task<IActionResult> OnGetAsync(string id) {
+		public async Task<IActionResult> OnGetAsync(string id, string approvalId, string accessId) {
 			try {
 				if (string.IsNullOrEmpty(id)) {
 					return NotFound();
+				}
+
+				if (!string.IsNullOrWhiteSpace(approvalId)) {
+					return await LoadApprovalViewAsync(approvalId);
+				}
+
+				if (!string.IsNullOrWhiteSpace(accessId)) {
+					return await LoadRecipientStatusViewAsync(accessId);
+				}
+
+				if (User?.Identity?.IsAuthenticated != true) {
+					return Challenge();
 				}
 
 				IsSignerAccount = User.IsInRole(AppRoles.Signer);
@@ -53,19 +72,6 @@ namespace SignFabric.Pages.Envelopes {
 					? await _signerDocumentService.GetSignedDocumentDetailsAsync(GetSignerEmail(), id)
 					: await _pageService.GetEnvelopeDetailsAsync(_userId, id);
 				Envelope = model.Envelope;
-
-				if (!IsSignerAccount &&
-					Envelope.Signers.All(signer => signer.SignerStatus == SignerStatus.Signed) &&
-					Envelope.Status != EnvelopeStatus.Signed &&
-					Envelope.Status != EnvelopeStatus.Faulted) {
-					try {
-						await _signingWorkflowService.GenerateFinalDocumentAsync(id);
-					} catch (InvalidOperationException) {
-						// The workflow stores the fault on the envelope; reload it so the page can explain the problem.
-					}
-					model = await _pageService.GetEnvelopeDetailsAsync(_userId, id);
-					Envelope = model.Envelope;
-				}
 
 				ThumbnailSvg = model.ThumbnailSvg;
 				_signatureImages = model.SignatureImages;
@@ -100,6 +106,61 @@ namespace SignFabric.Pages.Envelopes {
 
 		public string GetSignatureImage(string signerId) {
 			return _signatureImages.ContainsKey(signerId) ? _signatureImages[signerId] : "";
+		}
+
+		public async Task<IActionResult> OnPostApproveAsync(string id, string approvalId, string comment) {
+			return await CompleteApprovalAsync(id, approvalId, approved: true, comment);
+		}
+
+		public async Task<IActionResult> OnPostDeclineAsync(string id, string approvalId, string comment) {
+			return await CompleteApprovalAsync(id, approvalId, approved: false, comment);
+		}
+
+		private async Task<IActionResult> CompleteApprovalAsync(string id, string approvalId, bool approved, string comment) {
+			try {
+				await _signingWorkflowService.CompleteApprovalAsync(
+					approvalId,
+					approved,
+					comment,
+					Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown",
+					Request.Headers.UserAgent.ToString(),
+					Request.Scheme + "://" + Request.Host);
+
+				return RedirectToPage("/Envelopes/Details", new { id, approvalId });
+			}
+			catch (Exception ex) {
+				await LoadApprovalViewAsync(approvalId);
+				ApprovalErrorMessage = ex.Message;
+				return Page();
+			}
+		}
+
+		private async Task<IActionResult> LoadApprovalViewAsync(string approvalId) {
+			var preparation = await _signingWorkflowService.PrepareExternalApprovalAsync(approvalId);
+			var model = await _pageService.GetEnvelopeDetailsAsync(preparation.Envelope.UserID, preparation.Envelope.EnvelopeID);
+
+			IsApprovalView = true;
+			ApprovalAccessId = approvalId;
+			ApprovalRecipient = preparation.Approver;
+			ApprovalNotActiveYet = preparation.NotActiveYet;
+			Envelope = model.Envelope;
+			ThumbnailSvg = model.ThumbnailSvg;
+			_signatureImages = model.SignatureImages;
+
+			return Page();
+		}
+
+		private async Task<IActionResult> LoadRecipientStatusViewAsync(string accessId) {
+			var info = await _signingWorkflowService.GetSigningThanksAsync(accessId);
+			var model = await _pageService.GetEnvelopeDetailsAsync(info.Envelope.UserID, info.Envelope.EnvelopeID);
+
+			IsRecipientStatusView = true;
+			StatusRecipient = info.Signer;
+			Envelope = model.Envelope;
+			ThumbnailSvg = model.ThumbnailSvg;
+			_signatureImages = model.SignatureImages;
+
+			return Page();
 		}
 
 		private async Task<(byte[] Document, string FileName)> DownloadEnvelopeWithFinalizationRetryAsync(string id) {

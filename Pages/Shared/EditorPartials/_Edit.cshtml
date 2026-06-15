@@ -17,7 +17,7 @@
             <p class="editor-sidebar-help">Place the cursor where the signer should sign, then click a recipient.</p>
 
             @{
-                foreach (Signer signer in Model.Envelope.Signers) {
+                foreach (Signer signer in Model.Envelope.Signers.Where(signer => signer.Role == RecipientRole.Signer)) {
                     <div id="txsign_@signer.Id" class="list-group-item toolbox-item toolbox-item-small toolbox-item-signature">
                         <span class="toolbox-item-main">
                             <i class="bi bi-pen-fill" aria-hidden="true"></i>
@@ -60,7 +60,7 @@
 
                 <label for="formOwner" class="form-label editor-sidebar-label">Assign fields to</label>
                 <select id="formOwner" class="form-select mb-3">
-                    @foreach (Signer signer in Model.Envelope.Signers) {
+                    @foreach (Signer signer in Model.Envelope.Signers.Where(signer => signer.Role == RecipientRole.Signer)) {
                     <option value="@signer.Id">@signer.Email</option>
                     }
                 </select>
@@ -105,7 +105,7 @@
                 <div class="mb-3">
                     <label class="form-label d-block">Recipients</label>
                     <div id="signatureAreaSignerList" class="field-assignment-list">
-                        @foreach (var signer in Model.Envelope.Signers) {
+                        @foreach (var signer in Model.Envelope.Signers.Where(signer => signer.Role == RecipientRole.Signer)) {
                             <label class="field-assignment-row mb-0">
                                 <span class="field-assignment-label">
                                     <input class="form-check-input me-2 signature-area-signer" type="checkbox" name="signatureAreaSignerIds" value="@signer.Id" checked>

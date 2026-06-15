@@ -76,6 +76,19 @@
                     <p><strong>Recipients</strong><br />Please enter the name and the e-mail address of all signers.</p>
 
                     <div class="collapse show" id="collapseRecipient">
+                        <div class="workflow-mode-panel" data-envelope-id="@Model.Envelope.EnvelopeID">
+                            <div class="workflow-mode-header">
+                                <strong>Workflow</strong>
+                                <div class="btn-group workflow-mode-toggle" role="group" aria-label="Workflow type">
+                                    <input type="radio" class="btn-check" name="workflowMode" id="workflowModeSimple" value="0" checked>
+                                    <label class="btn btn-outline-primary" for="workflowModeSimple">Simple</label>
+                                    <input type="radio" class="btn-check" name="workflowMode" id="workflowModeComplex" value="1">
+                                    <label class="btn btn-outline-primary" for="workflowModeComplex">Complex</label>
+                                </div>
+                            </div>
+                            <p class="workflow-mode-help">Simple sends all signers in parallel. Complex enables order, approvers, CC, and observers.</p>
+                        </div>
+
                         <form autocomplete="on" id="processForm" class="needs-validation">
                             <div class="box-frame">
                                 <div class="mb-3">
@@ -93,6 +106,23 @@
                                     <label for="requireEmailOtp" class="form-check-label">Require e-mail verification code before signing</label>
                                     <div class="form-text">Signers can also sign in with an existing account for this e-mail address.</div>
                                 </div>
+                                <div class="workflow-recipient-options d-none" id="workflowRecipientOptions">
+                                    <div class="row g-3">
+                                        <div class="col-md-7">
+                                            <label for="recipientRole" class="form-label">Role</label>
+                                            <select id="recipientRole" class="form-select">
+                                                <option value="0">Signer</option>
+                                                <option value="1">Approver</option>
+                                                <option value="2">CC</option>
+                                                <option value="3">Observer</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label for="recipientRoutingOrder" class="form-label">Order</label>
+                                            <input type="number" min="1" step="1" value="1" class="form-control" id="recipientRoutingOrder">
+                                        </div>
+                                    </div>
+                                </div>
 
                                 <button data-esign-action="submit-recipient" data-envelope-id="@Model.Envelope.EnvelopeID" data-type="envelope" class="btn btn-warning"><strong>Add Recipient</strong></button>
 
@@ -104,6 +134,13 @@
 
                         <div>
                             <div class="list-group mt-3" id="listRecipients"></div>
+                            <div class="workflow-designer d-none" id="workflowDesigner">
+                                <div class="workflow-designer-header">
+                                    <strong>Routing Designer</strong>
+                                    <button type="button" data-esign-action="save-workflow" data-envelope-id="@Model.Envelope.EnvelopeID" class="btn btn-sm btn-outline-primary">Save Workflow</button>
+                                </div>
+                                <div id="workflowDesignerRows" class="workflow-designer-rows"></div>
+                            </div>
                             <button id="btnConfirmRecipients" data-esign-action="confirm-recipients" data-envelope-id="@Model.Envelope.EnvelopeID" class="btn btn-warning mt-3 mb-3 disabled"><strong>Next</strong></button>
                         </div>
                     </div>

@@ -2701,6 +2701,131 @@ textarea:not(#editor *):not(.editor-wrapper *):not(.editor-document *):not(#txTe
     border: 1px solid #bae6fd;
 }
 
+.workflow-mode-panel,
+.workflow-designer {
+    margin-bottom: 18px;
+    padding: 16px;
+    border: 1px solid #dbe4f0;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.workflow-mode-header,
+.workflow-designer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.workflow-mode-help {
+    margin: 10px 0 0;
+    color: #5b6b84;
+    font-size: .92rem;
+}
+
+.workflow-recipient-options {
+    margin-bottom: 20px;
+    padding: 14px;
+    border: 1px solid #dbe4f0;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.recipient-badge-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.recipient-role-badge {
+    color: #1f2937;
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+}
+
+.recipient-order-badge {
+    color: #365314;
+    background: #ecfccb;
+    border: 1px solid #bef264;
+}
+
+.workflow-designer {
+    margin-top: 16px;
+}
+
+.workflow-designer-rows {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.workflow-designer-row {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) 150px 92px auto;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.workflow-designer-recipient {
+    min-width: 0;
+}
+
+.workflow-designer-recipient strong,
+.workflow-designer-recipient span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.workflow-designer-recipient span {
+    color: #64748b;
+    font-size: .86rem;
+}
+
+.workflow-designer-otp {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    color: #475569;
+    font-weight: 700;
+}
+
+.workflow-no-order {
+    display: inline-flex;
+    align-items: center;
+    min-height: 31px;
+    color: #64748b;
+    font-size: .86rem;
+    font-weight: 700;
+}
+
+.approval-action-panel {
+    width: min(100%, 560px);
+    padding: 16px;
+    border: 1px solid #dbe4f0;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.envelope-approval-row {
+    flex-basis: 100%;
+    width: 100%;
+    margin-top: 24px;
+    margin-bottom: 22px;
+}
+
+.envelope-approval-row > .alert,
+.envelope-approval-row > .approval-action-panel {
+    max-width: 640px;
+}
+
 .signature-flow-card .list-group {
     max-width: 100%;
 }

@@ -89,12 +89,26 @@ namespace SignFabric.Application.Services {
 				Signer signer = envelope.Signers.FirstOrDefault(item => item.Id == signerId)
 					?? throw new InvalidOperationException($"Signer {signerId} not found in envelope {envelopeId}");
 
+				if (signer.Role != RecipientRole.Signer) {
+					throw new InvalidOperationException("This recipient is not configured to sign the document.");
+				}
+
 				if (signer.SignatureInformation != null) {
 					return new ExternalSigningPreparation {
 						AccessId = accessId,
 						Envelope = envelope,
 						Signer = signer,
 						AlreadySigned = true
+					};
+				}
+
+				NormalizeRouting(envelope);
+				if (!signer.RoutingActive && envelope.Status == EnvelopeStatus.Sent) {
+					return new ExternalSigningPreparation {
+						AccessId = accessId,
+						Envelope = envelope,
+						Signer = signer,
+						NotActiveYet = true
 					};
 				}
 
@@ -306,7 +320,7 @@ namespace SignFabric.Application.Services {
 			}
 		}
 
-		public async Task CompleteDocumentViewerSigningAsync(SignatureData data, string userId, string envelopeId, string signerId, string ipAddress, string userAgent) {
+		public async Task CompleteDocumentViewerSigningAsync(SignatureData data, string userId, string envelopeId, string signerId, string ipAddress, string userAgent, string host) {
 			await Task.Run(async () => {
 				if (data?.SignedDocument == null) {
 					throw new InvalidOperationException("The signed document data was not received. Please reload the signing page and try again.");
@@ -366,15 +380,17 @@ namespace SignFabric.Application.Services {
 				}
 
 				currentSigner.SignerStatus = SignerStatus.Signed;
+				currentSigner.CompletedAt = DateTime.UtcNow;
 				store.Update(envelope.EnvelopeID, envelope);
 
 				await TrySendSignedConfirmationAsync(envelope, currentSigner);
 
-				if (envelope.Signers.All(signer => signer.SignerStatus == SignerStatus.Signed)) {
+				if (IsEnvelopeWorkflowComplete(envelope)) {
 					try {
-						string masterDocument = envelope.Signers.Count > 1
+						var signingRecipients = envelope.Signers.Where(item => item.Role == RecipientRole.Signer).ToList();
+						string masterDocument = signingRecipients.Count > 1
 							? MergeEnvelopeAutoFillFields(store.GetDocument(envelopeId), envelope)
-							: store.GetSignedDocument(envelopeId, envelope.Signers[0].Id);
+							: store.GetSignedDocument(envelopeId, signingRecipients[0].Id);
 
 						var createdPDF = _txService.CreateSignedPdf(envelope, masterDocument);
 
@@ -406,10 +422,74 @@ namespace SignFabric.Application.Services {
 						throw new InvalidOperationException(envelope.FaultMessage, ex);
 					}
 				}
+				else if (ActivateNextRoutingStep(envelope)) {
+					store.Update(envelope.EnvelopeID, envelope);
+					await TrySendRoutingInvitationsAsync(envelope, host, userId);
+				}
 
 				store.Update(envelope.EnvelopeID, envelope);
 				await _auditLogger.LogDocumentSignedAsync(envelope.EnvelopeID, signerId, DateTime.UtcNow);
 			});
+		}
+
+		public async Task<ExternalApprovalPreparation> PrepareExternalApprovalAsync(string accessId) {
+			return await Task.Run(() => {
+				var (envelope, approver, _) = LoadSigningContext(accessId);
+				NormalizeRouting(envelope);
+
+				if (approver.Role != RecipientRole.Approver) {
+					throw new InvalidOperationException("This recipient is not configured as an approver.");
+				}
+
+				return new ExternalApprovalPreparation {
+					AccessId = accessId,
+					Envelope = envelope,
+					Approver = approver,
+					AlreadyCompleted = approver.SignerStatus == SignerStatus.Signed,
+					NotActiveYet = approver.SignerStatus != SignerStatus.Signed &&
+						envelope.Status == EnvelopeStatus.Sent &&
+						!approver.RoutingActive
+				};
+			});
+		}
+
+		public async Task CompleteApprovalAsync(string accessId, bool approved, string comment, string ipAddress, string userAgent, string host) {
+			var (envelope, approver, ownerUserId) = LoadSigningContext(accessId);
+			if (approver.Role != RecipientRole.Approver) {
+				throw new InvalidOperationException("This recipient is not configured as an approver.");
+			}
+
+			if (!approver.RoutingActive && envelope.Status == EnvelopeStatus.Sent) {
+				throw new InvalidOperationException("This approval step is not active yet.");
+			}
+
+			var store = _storeFactory.CreateEnvelopeRepository(ownerUserId);
+			approver.ApprovalComment = approved ? comment : null;
+			approver.DeclineReason = approved ? null : comment;
+			approver.ApprovalIPAddress = ipAddress;
+			approver.ApprovalUserAgent = NormalizeEvidenceValue(userAgent);
+			approver.CompletedAt = DateTime.UtcNow;
+			approver.SignerStatus = approved ? SignerStatus.Signed : SignerStatus.None;
+
+			if (!approved) {
+				envelope.Status = EnvelopeStatus.Faulted;
+				envelope.FaultMessage = string.IsNullOrWhiteSpace(comment)
+					? "The envelope was declined by an approver."
+					: comment;
+				store.Update(envelope.EnvelopeID, envelope);
+				return;
+			}
+
+			if (IsEnvelopeWorkflowComplete(envelope)) {
+				await FinalizeEnvelopeAsync(store, envelope, ownerUserId);
+			}
+			else if (ActivateNextRoutingStep(envelope)) {
+				store.Update(envelope.EnvelopeID, envelope);
+				await TrySendRoutingInvitationsAsync(envelope, host, ownerUserId);
+			}
+			else {
+				store.Update(envelope.EnvelopeID, envelope);
+			}
 		}
 
 		public async Task<bool> IsFullySignedAsync(string envelopeId) {
@@ -434,16 +514,17 @@ namespace SignFabric.Application.Services {
 					throw new InvalidOperationException($"Envelope {envelopeId} not found");
 				}
 
-				if (!envelope.Signers.All(s => s.SignerStatus == SignerStatus.Signed)) {
+				if (!IsEnvelopeWorkflowComplete(envelope)) {
 					throw new InvalidOperationException("Not all signers have signed the document");
 				}
 
 				// Get the master document (logic from ReviewController)
 				string masterDocument;
-				if (envelope.Signers.Count > 1) {
+				var signingRecipients = envelope.Signers.Where(item => item.Role == RecipientRole.Signer).ToList();
+				if (signingRecipients.Count > 1) {
 					masterDocument = MergeEnvelopeAutoFillFields(store.GetDocument(envelopeId), envelope);
 				} else {
-					masterDocument = store.GetSignedDocument(envelopeId, envelope.Signers[0].Id);
+					masterDocument = store.GetSignedDocument(envelopeId, signingRecipients[0].Id);
 				}
 
 				try {
@@ -621,6 +702,119 @@ namespace SignFabric.Application.Services {
 				_logger.LogWarning(ex, "The finalization fault notification e-mail for envelope {EnvelopeId} could not be sent.", envelope.EnvelopeID);
 			}
 		}
+
+		private async Task TrySendRoutingInvitationsAsync(Envelope envelope, string host, string ownerUserId) {
+			try {
+				await _emailSender.SendEnvelopeInvitationsAsync(envelope, host, ownerUserId);
+			} catch (Exception ex) {
+				_logger.LogWarning(ex, "The next routing invitation e-mails for envelope {EnvelopeId} could not be sent.", envelope.EnvelopeID);
+			}
+		}
+
+		private async Task FinalizeEnvelopeAsync(IEnvelopeRepository store, Envelope envelope, string ownerUserId) {
+			try {
+				var signingRecipients = envelope.Signers.Where(item => item.Role == RecipientRole.Signer).ToList();
+				if (!signingRecipients.Any()) {
+					throw new InvalidOperationException("The envelope has no signer recipients.");
+				}
+
+				string masterDocument = signingRecipients.Count > 1
+					? MergeEnvelopeAutoFillFields(store.GetDocument(envelope.EnvelopeID), envelope)
+					: store.GetSignedDocument(envelope.EnvelopeID, signingRecipients[0].Id);
+
+				var createdPDF = _txService.CreateSignedPdf(envelope, masterDocument);
+
+				using (var ms = new MemoryStream(createdPDF.PdfData)) {
+					store.UploadFinalSignedDocument(envelope, ms);
+				}
+
+				envelope.FinalizedAt = DateTime.UtcNow;
+				envelope.FinalDocumentHashSha256 = CalculateSha256(createdPDF.PdfData);
+				envelope.FinalDocumentHashMD5 = CalculateMD5(createdPDF.PdfData);
+				envelope.FinalDocumentSizeBytes = createdPDF.PdfData.LongLength;
+				envelope.OriginalDocumentHashSha256 = CalculateSha256(Convert.FromBase64String(store.GetDocument(envelope.EnvelopeID)));
+				envelope.ValidationId = Convert.ToBase64String(Encoding.ASCII.GetBytes(envelope.EnvelopeID + ":" + ownerUserId));
+				envelope.SigningCertificate ??= GetSigningCertificateEvidence(envelope);
+
+				if (!string.IsNullOrWhiteSpace(createdPDF.ThumbnailSvg)) {
+					store.AddThumbnail(envelope, createdPDF.ThumbnailSvg);
+				}
+
+				envelope.Status = EnvelopeStatus.Signed;
+				envelope.FaultMessage = null;
+				store.Update(envelope.EnvelopeID, envelope);
+
+				await TrySendFinalSignedNotificationAsync(envelope, createdPDF.PdfData);
+				await _auditLogger.LogEnvelopeCompletedAsync(envelope.EnvelopeID, DateTime.UtcNow);
+			} catch (Exception ex) {
+				MarkFinalizationFault(store, envelope, ex);
+				await TrySendFinalizationFaultNotificationAsync(envelope);
+				throw new InvalidOperationException(envelope.FaultMessage, ex);
+			}
+		}
+
+		private static void NormalizeRouting(Envelope envelope) {
+			foreach (var recipient in envelope.Signers) {
+				if (recipient.Role == RecipientRole.Observer) {
+					recipient.RoutingOrder = 0;
+				}
+				else if (recipient.RoutingOrder <= 0) {
+					recipient.RoutingOrder = 1;
+				}
+			}
+
+			if (envelope.WorkflowMode == EnvelopeWorkflowMode.Simple) {
+				foreach (var recipient in envelope.Signers) {
+					recipient.Role = RecipientRole.Signer;
+					recipient.RoutingOrder = 1;
+				}
+			}
+		}
+
+		private static bool ActivateNextRoutingStep(Envelope envelope) {
+			NormalizeRouting(envelope);
+			var previousActiveIds = envelope.Signers
+				.Where(recipient => recipient.RoutingActive)
+				.Select(recipient => recipient.Id)
+				.ToHashSet();
+
+			var nextBlockingOrder = envelope.Signers
+				.Where(IsBlockingRecipient)
+				.Where(recipient => !IsRecipientComplete(recipient))
+				.Select(recipient => recipient.RoutingOrder <= 0 ? 1 : recipient.RoutingOrder)
+				.DefaultIfEmpty(0)
+				.Min();
+
+			foreach (var recipient in envelope.Signers) {
+				if (recipient.Role == RecipientRole.Observer) {
+					recipient.RoutingActive = true;
+					if (!recipient.RoutingActivatedAt.HasValue) {
+						recipient.RoutingActivatedAt = DateTime.UtcNow;
+					}
+					continue;
+				}
+
+				var recipientOrder = recipient.RoutingOrder <= 0 ? 1 : recipient.RoutingOrder;
+				recipient.RoutingActive = IsBlockingRecipient(recipient)
+					? nextBlockingOrder > 0 && recipientOrder == nextBlockingOrder
+					: nextBlockingOrder == 0 || recipientOrder <= nextBlockingOrder;
+
+				if (recipient.RoutingActive && !recipient.RoutingActivatedAt.HasValue) {
+					recipient.RoutingActivatedAt = DateTime.UtcNow;
+				}
+			}
+
+			return envelope.Signers.Any(recipient => recipient.RoutingActive && !previousActiveIds.Contains(recipient.Id));
+		}
+
+		private static bool IsEnvelopeWorkflowComplete(Envelope envelope) =>
+			envelope.Signers.Where(IsBlockingRecipient).All(IsRecipientComplete);
+
+		private static bool IsBlockingRecipient(Signer recipient) =>
+			recipient.Role == RecipientRole.Signer || recipient.Role == RecipientRole.Approver;
+
+		private static bool IsRecipientComplete(Signer recipient) =>
+			recipient.SignerStatus == SignerStatus.Signed;
 
 		private static string CalculateMD5(byte[] document) {
 			using (var md5 = MD5.Create()) {

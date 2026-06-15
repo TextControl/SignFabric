@@ -23,7 +23,20 @@
 </head>
 <body>
 
-    @if (Model.RequiresEmailOtp) {
+    @if (Model.NotActiveYet) {
+        <main class="review-sign-auth-shell">
+            <section class="auth-card review-sign-auth-card">
+                <div class="auth-icon" aria-hidden="true">
+                    <i class="bi bi-hourglass-split"></i>
+                </div>
+                <h1>Not Your Turn Yet</h1>
+                <p>
+                    This document is still waiting for an earlier routing step. We will send another notification when it is ready for you.
+                </p>
+            </section>
+        </main>
+    }
+    else if (Model.RequiresEmailOtp) {
         <main class="review-sign-auth-shell">
             <section class="auth-card review-sign-auth-card">
                 <div class="auth-icon" aria-hidden="true">
@@ -145,7 +158,7 @@
     <script src="~/twitter-bootstrap/js/bootstrap.bundle.js"></script>
     <script src="~/js/site.min.js" asp-append-version="true"></script>
 
-    @if (!Model.RequiresEmailOtp) {
+    @if (!Model.RequiresEmailOtp && !Model.NotActiveYet) {
         <div data-esign-init="review-signing"></div>
     }
 </body>

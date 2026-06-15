@@ -637,7 +637,11 @@
         },
 
         submitEnvelope: function (envelopeId) {
-            postJson("/envelope/submit/" + envelopeId)
+            saveWorkflow(envelopeId)
+                .then(function (envelope) {
+                    currentEnvelope = envelope;
+                    return postJson("/envelope/submit/" + envelopeId);
+                })
                 .then(function () {
                     TextControl.esign.showToast("Envelope successfully sent!");
                     $("#statusReview").addClass("status-check");
@@ -786,8 +790,17 @@
                         var email = $("#signerEmail").val();
                         var requireEmailOtpInput = document.getElementById("requireEmailOtp");
                         var requireEmailOtp = !!(requireEmailOtpInput && requireEmailOtpInput.checked);
+                        var role = isComplexWorkflow() ? parseInt((document.getElementById("recipientRole") || {}).value || "0", 10) || 0 : 0;
+                        var orderInput = document.getElementById("recipientRoutingOrder");
+                        var routingOrder = role === 3 ? 0 : isComplexWorkflow() ? Math.max(parseInt(orderInput && orderInput.value || "1", 10) || 1, 1) : 1;
 
-                        var data = { "name": name, "email": email, "requireEmailOtp": requireEmailOtp };
+                        var data = {
+                            "name": name,
+                            "email": email,
+                            "role": role,
+                            "routingOrder": routingOrder,
+                            "requireEmailOtp": requireEmailOtp
+                        };
 
                         postJson(url, data, false)
                             .then(function (envelope) {
@@ -819,6 +832,36 @@
         },
 
         confirmRecipients: function (envelopeId) {
+            return saveWorkflow(envelopeId)
+                .then(function () {
+                    return ensureRecipientFieldAssignments(envelopeId);
+                })
+                .then(function (assigned) {
+                    if (!assigned) return;
+
+                    $("#statusRecipient").addClass("status-check");
+                    $("#statusSignature").addClass("status-active");
+                    TextControl.esign.nextStep('collapseSignature');
+                })
+                .catch(function (error) {
+                    showError(error, "The workflow or field assignments could not be saved.");
+                });
+        },
+
+        saveWorkflow: function (envelopeId) {
+            return saveWorkflow(envelopeId)
+                .then(function (envelope) {
+                    currentEnvelope = envelope;
+                    updateRecipients(currentEnvelope.signers, envelopeId, "envelope");
+                    TextControl.esign.showToast("Workflow saved.", "warning");
+                    return envelope;
+                })
+                .catch(function (error) {
+                    showError(error, "The workflow could not be saved.");
+                });
+        },
+
+        confirmRecipientsLegacy: function (envelopeId) {
             ensureRecipientFieldAssignments(envelopeId)
                 .then(function (assigned) {
                     if (!assigned) return;
@@ -1062,7 +1105,9 @@
 
     function getAvailableSigners() {
         if (currentEnvelope && Array.isArray(currentEnvelope.signers) && currentEnvelope.signers.length) {
-            return currentEnvelope.signers.map(function (signer) {
+            return currentEnvelope.signers.filter(function (signer) {
+                return getRecipientRoleValue(signer) === 0;
+            }).map(function (signer) {
                 return {
                     id: signer.id,
                     name: signer.name || signer.email || signer.id,
@@ -1237,11 +1282,15 @@
                 return true;
             }
 
-            if (currentEnvelope && currentEnvelope.signers && currentEnvelope.signers.length === 1) {
+            var signingRecipients = currentEnvelope && currentEnvelope.signers
+                ? currentEnvelope.signers.filter(function (signer) { return getRecipientRoleValue(signer) === 0; })
+                : [];
+
+            if (signingRecipients.length === 1) {
                 return saveFieldAssignments(envelopeId, state.fields.map(function (field) {
                     return {
                         fieldId: field.fieldId,
-                        signerId: currentEnvelope.signers[0].id
+                        signerId: signingRecipients[0].id
                     };
                 }));
             }
@@ -1284,7 +1333,9 @@
                 select.setAttribute("aria-label", "Assign " + field.label + " to recipient");
 
                 select.appendChild(new Option("Select recipient", ""));
-                currentEnvelope.signers.forEach(function (signer) {
+                currentEnvelope.signers.filter(function (signer) {
+                    return getRecipientRoleValue(signer) === 0;
+                }).forEach(function (signer) {
                     select.appendChild(new Option(signer.email || signer.name || signer.id, signer.id));
                 });
 
@@ -1467,12 +1518,16 @@
 
     function updateRecipients(recipients, envelopeId, type) {
         $("#listRecipients").empty();
+        syncWorkflowModeFromEnvelope();
+        renderWorkflowDesigner(recipients, envelopeId);
 
         recipients.forEach(function (signer) {
             var authBadge = signer.requireEmailOtp
                 ? "<span class=\"badge rounded-pill recipient-auth-badge\"><i class=\"bi bi-envelope-check\" aria-hidden=\"true\"></i> E-mail OTP</span>"
                 : "";
-            $("#listRecipients").append("<div class=\"list-group-item list-group-item-action\" aria-current=\"true\"><div class=\"d-flex w-100 justify-content-between gap-2\" ><h5 class=\"mb-1\">" + signer.name + "</h5><a class=\"btn btn-sm btn-outline-danger\" onclick=\"TextControl.esign.removeRecipient('" + envelopeId + "','" + type + "','" + signer.email + "','" + signer.name + "');\">Remove</a></div ><p class=\"mb-1\">" + signer.email + "</p>" + authBadge + "</div >");
+            var roleBadge = "<span class=\"badge rounded-pill recipient-role-badge\">" + getRecipientRole(signer) + "</span>";
+            var orderBadge = isComplexWorkflow() ? "<span class=\"badge rounded-pill recipient-order-badge\">Order " + getRecipientOrder(signer) + "</span>" : "";
+            $("#listRecipients").append("<div class=\"list-group-item list-group-item-action\" aria-current=\"true\"><div class=\"d-flex w-100 justify-content-between gap-2\" ><h5 class=\"mb-1\">" + signer.name + "</h5><a class=\"btn btn-sm btn-outline-danger\" onclick=\"TextControl.esign.removeRecipient('" + envelopeId + "','" + type + "','" + signer.email + "','" + signer.name + "');\">Remove</a></div ><p class=\"mb-1\">" + signer.email + "</p><div class=\"recipient-badge-row\">" + roleBadge + orderBadge + authBadge + "</div></div >");
         });
 
         if (recipients.length != 0) {
@@ -1481,6 +1536,158 @@
         else {
             $("#btnConfirmRecipients").addClass("disabled");
         }
+    }
+
+    function isComplexWorkflow() {
+        var complex = document.getElementById("workflowModeComplex");
+        return !!(complex && complex.checked);
+    }
+
+    function getWorkflowMode() {
+        return isComplexWorkflow() ? 1 : 0;
+    }
+
+    function getRecipientRole(signer) {
+        return getRecipientRoleName(signer.role);
+    }
+
+    function getRecipientRoleValue(signer) {
+        var role = signer && signer.role;
+        if (typeof role === "number") return role;
+        if (typeof role === "string") {
+            var normalized = role.toLowerCase();
+            if (normalized === "approver") return 1;
+            if (normalized === "cc") return 2;
+            if (normalized === "observer") return 3;
+        }
+
+        return 0;
+    }
+
+    function getRecipientRoleName(role) {
+        var value = typeof role === "number" ? role : getRecipientRoleValue({ role: role });
+        switch (value) {
+            case 1: return "Approver";
+            case 2: return "CC";
+            case 3: return "Observer";
+            default: return "Signer";
+        }
+    }
+
+    function getRecipientOrder(signer) {
+        return Math.max(parseInt(signer.routingOrder || "1", 10) || 1, 1);
+    }
+
+    function saveWorkflow(envelopeId) {
+        if (!currentEnvelope || !Array.isArray(currentEnvelope.signers)) {
+            return Promise.resolve(currentEnvelope);
+        }
+
+        var rows = [].slice.call(document.querySelectorAll("[data-workflow-recipient-id]"));
+        var rowById = {};
+        rows.forEach(function (row) {
+            rowById[row.dataset.workflowRecipientId] = row;
+        });
+
+        var recipients = currentEnvelope.signers.map(function (signer) {
+            var row = rowById[signer.id];
+            var role = getWorkflowMode() === 1 && row
+                ? parseInt((row.querySelector("[data-workflow-role]") || {}).value || "0", 10) || 0
+                : 0;
+            var order = role === 3
+                ? 0
+                : getWorkflowMode() === 1 && row
+                ? Math.max(parseInt((row.querySelector("[data-workflow-order]") || {}).value || "1", 10) || 1, 1)
+                : 1;
+            var otpInput = row ? row.querySelector("[data-workflow-otp]") : null;
+
+            return {
+                id: signer.id,
+                role: role,
+                routingOrder: order,
+                requireEmailOtp: otpInput ? !!otpInput.checked : !!signer.requireEmailOtp
+            };
+        });
+
+        return postJson("/envelope/workflow/" + envelopeId, {
+            workflowMode: getWorkflowMode(),
+            recipients: recipients
+        }, false);
+    }
+
+    function syncWorkflowModeFromEnvelope() {
+        if (!currentEnvelope) return;
+        var mode = currentEnvelope.workflowMode || 0;
+        var simple = document.getElementById("workflowModeSimple");
+        var complex = document.getElementById("workflowModeComplex");
+        if ((mode === 0 || mode === "Simple") && complex && complex.checked) {
+            updateWorkflowDesignerVisibility();
+            return;
+        }
+        if (simple) simple.checked = mode !== 1 && mode !== "Complex";
+        if (complex) complex.checked = mode === 1 || mode === "Complex";
+        updateWorkflowDesignerVisibility();
+    }
+
+    function updateWorkflowDesignerVisibility() {
+        var complex = isComplexWorkflow();
+        var recipientOptions = document.getElementById("workflowRecipientOptions");
+        var designer = document.getElementById("workflowDesigner");
+        if (recipientOptions) recipientOptions.classList.toggle("d-none", !complex);
+        if (designer) designer.classList.toggle("d-none", !complex);
+    }
+
+    function renderWorkflowDesigner(recipients, envelopeId) {
+        updateWorkflowDesignerVisibility();
+        var container = document.getElementById("workflowDesignerRows");
+        if (!container) return;
+
+        container.innerHTML = "";
+        (recipients || []).forEach(function (signer) {
+            var row = document.createElement("div");
+            row.className = "workflow-designer-row";
+            row.dataset.workflowRecipientId = signer.id;
+            row.innerHTML =
+                "<div class=\"workflow-designer-recipient\"><strong>" + escapeHtml(signer.name || signer.email || "") + "</strong><span>" + escapeHtml(signer.email || "") + "</span></div>" +
+                "<select class=\"form-select form-select-sm\" data-workflow-role>" +
+                buildRoleOption(0, "Signer", signer) +
+                buildRoleOption(1, "Approver", signer) +
+                buildRoleOption(2, "CC", signer) +
+                buildRoleOption(3, "Observer", signer) +
+                "</select>" +
+                buildOrderControl(signer) +
+                "<label class=\"workflow-designer-otp\"><input type=\"checkbox\" data-workflow-otp" + (signer.requireEmailOtp ? " checked" : "") + "> OTP</label>";
+            container.appendChild(row);
+
+            var roleSelect = row.querySelector("[data-workflow-role]");
+            if (roleSelect) {
+                roleSelect.addEventListener("change", function () {
+                    signer.role = parseInt(roleSelect.value || "0", 10) || 0;
+                    signer.routingOrder = signer.role === 3 ? 0 : getRecipientOrder(signer);
+                    renderWorkflowDesigner(recipients, envelopeId);
+                });
+            }
+        });
+    }
+
+    function buildRoleOption(role, label, signer) {
+        return "<option value=\"" + role + "\"" + (getRecipientRoleValue(signer) === role ? " selected" : "") + ">" + label + "</option>";
+    }
+
+    function buildOrderControl(signer) {
+        if (getRecipientRoleValue(signer) === 3) {
+            return "<span class=\"workflow-no-order\" data-workflow-order-display>No order</span><input type=\"hidden\" value=\"0\" data-workflow-order>";
+        }
+
+        return "<input class=\"form-control form-control-sm\" type=\"number\" min=\"1\" step=\"1\" value=\"" + getRecipientOrder(signer) + "\" data-workflow-order>";
+    }
+
+    function escapeHtml(value) {
+        return String(value || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
     }
 
     function uploadDocument(data) {
@@ -2133,6 +2340,15 @@
                 TextControl.esign.updateSigningCertificate(signingCertificate.dataset.envelopeId, signingCertificate.value);
             });
         }
+
+        document.querySelectorAll("input[name='workflowMode']").forEach(function (input) {
+            input.addEventListener("change", function () {
+                updateWorkflowDesignerVisibility();
+                if (currentEnvelope && currentEnvelope.signers) {
+                    renderWorkflowDesigner(currentEnvelope.signers, (document.querySelector("[data-envelope-id]") || {}).dataset.envelopeId);
+                }
+            });
+        });
     });
 
     return tx;

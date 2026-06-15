@@ -89,6 +89,10 @@ namespace SignFabric.Infrastructure.Email.Legacy {
 					["%%%sender_name%%%"] = envelope.Sender,
 					["%%%document_name%%%"] = envelope.Name,
 					["%%%envelope_code%%%"] = envelope_code,
+					["%%%recipient_url%%%"] = GetRecipientUrl(host, envelope_code, envelope, signer),
+					["%%%email_heading%%%"] = GetRecipientHeading(signer),
+					["%%%email_action_text%%%"] = GetRecipientActionText(signer),
+					["%%%button_text%%%"] = GetRecipientButtonText(signer),
 					["%%%url%%%"] = HostUrl(host)
 				},
 				out var subject);
@@ -99,7 +103,7 @@ namespace SignFabric.Infrastructure.Email.Legacy {
 				Subject = subject
 			});
 
-			signer.SignerStatus = SignerStatus.Sent;
+			signer.RecordStatusEvent(SignerStatus.Sent);
 		}
 
 		public void SendConfirmationEmail(Envelope envelope, string host, string userId) {
@@ -107,7 +111,7 @@ namespace SignFabric.Infrastructure.Email.Legacy {
 			EmailService emailService = new EmailService(_credentials);
 			
 
-			foreach (Signer signer in envelope.Signers) {
+			foreach (Signer signer in envelope.Signers.Where(signer => signer.RoutingActive && !HasStatusEvent(signer, SignerStatus.Sent))) {
 
 				var envelope_code = EncodeAccessId(envelope.EnvelopeID, userId, signer.Id);
 
@@ -117,6 +121,10 @@ namespace SignFabric.Infrastructure.Email.Legacy {
 						["%%%sender_name%%%"] = envelope.Sender,
 						["%%%document_name%%%"] = envelope.Name,
 						["%%%envelope_code%%%"] = envelope_code,
+						["%%%recipient_url%%%"] = GetRecipientUrl(host, envelope_code, envelope, signer),
+						["%%%email_heading%%%"] = GetRecipientHeading(signer),
+						["%%%email_action_text%%%"] = GetRecipientActionText(signer),
+						["%%%button_text%%%"] = GetRecipientButtonText(signer),
 						["%%%url%%%"] = HostUrl(host)
 					},
 					out var subject);
@@ -127,7 +135,7 @@ namespace SignFabric.Infrastructure.Email.Legacy {
 					Subject = subject
 				});
 
-				signer.SignerStatus = SignerStatus.Sent;
+				signer.RecordStatusEvent(SignerStatus.Sent);
 			}
 			
 		}
@@ -340,6 +348,49 @@ namespace SignFabric.Infrastructure.Email.Legacy {
 				.TrimEnd('=')
 				.Replace('+', '-')
 				.Replace('/', '_');
+
+		private static string GetRecipientUrl(string host, string envelopeCode, Envelope envelope, Signer signer) {
+			if (signer.Role == RecipientRole.Approver) {
+				return HostUrl(host) + "/envelopes/details/" + WebUtility.UrlEncode(envelope.EnvelopeID) + "?approvalId=" + WebUtility.UrlEncode(envelopeCode);
+			}
+
+			if (signer.Role == RecipientRole.Cc || signer.Role == RecipientRole.Observer) {
+				return HostUrl(host) + "/envelopes/details/" + WebUtility.UrlEncode(envelope.EnvelopeID) + "?accessId=" + WebUtility.UrlEncode(envelopeCode);
+			}
+
+			var path = signer.Role switch {
+				_ => "/review/sign"
+			};
+
+			return HostUrl(host) + path + "?id=" + WebUtility.UrlEncode(envelopeCode);
+		}
+
+		private static string GetRecipientHeading(Signer signer) =>
+			signer.Role switch {
+				RecipientRole.Approver => "Please review and approve",
+				RecipientRole.Cc => "Document notification",
+				RecipientRole.Observer => "Document available for review",
+				_ => "Please review and sign"
+			};
+
+		private static string GetRecipientActionText(Signer signer) =>
+			signer.Role switch {
+				RecipientRole.Approver => "review and approve",
+				RecipientRole.Cc => "keep for your records",
+				RecipientRole.Observer => "review",
+				_ => "review and sign"
+			};
+
+		private static string GetRecipientButtonText(Signer signer) =>
+			signer.Role switch {
+				RecipientRole.Approver => "REVIEW AND APPROVE",
+				RecipientRole.Cc => "VIEW STATUS",
+				RecipientRole.Observer => "VIEW DOCUMENT",
+				_ => "REVIEW DOCUMENT"
+			};
+
+		private static bool HasStatusEvent(Signer signer, SignerStatus status) =>
+			signer.StatusChanged?.Any(item => item.SignerStatus == status) == true;
 
 	}
 }

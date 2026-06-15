@@ -31,12 +31,51 @@ namespace SignFabric.Application.Services {
 					Name = signer.Name,
 					Email = signer.Email,
 					Id = Guid.NewGuid().ToString(),
+					Role = signer.Role,
+					RoutingOrder = signer.RoutingOrder <= 0 ? 1 : signer.RoutingOrder,
 					RequireEmailOtp = signer.RequireEmailOtp,
 					AuthenticationMethod = signer.RequireEmailOtp
 						? SignerAuthenticationMethod.EmailOtp
 						: SignerAuthenticationMethod.EmailLink
 				});
 				envelope.Status = EnvelopeStatus.New;
+				store.Update(envelope.EnvelopeID, envelope);
+				return envelope;
+			});
+		}
+
+		public async Task<Envelope> UpdateWorkflowAsync(string userId, string envelopeId, EnvelopeWorkflowUpdate request) {
+			return await Task.Run(() => {
+				var store = _storeFactory.CreateEnvelopeRepository(userId);
+				var envelope = store.GetEnvelopes(envelopeId).FirstOrDefault() ?? throw new InvalidOperationException("Envelope not found");
+				if (request == null) {
+					throw new ArgumentNullException(nameof(request));
+				}
+
+				envelope.WorkflowMode = request.WorkflowMode;
+				foreach (var update in request.Recipients ?? Enumerable.Empty<EnvelopeRecipientWorkflowUpdate>()) {
+					var recipient = envelope.Signers.FirstOrDefault(item => item.Id == update.Id);
+					if (recipient == null) {
+						continue;
+					}
+
+					recipient.Role = update.Role;
+					recipient.RoutingOrder = update.Role == RecipientRole.Observer
+						? 0
+						: update.RoutingOrder <= 0 ? 1 : update.RoutingOrder;
+					recipient.RequireEmailOtp = update.RequireEmailOtp;
+					recipient.AuthenticationMethod = update.RequireEmailOtp
+						? SignerAuthenticationMethod.EmailOtp
+						: SignerAuthenticationMethod.EmailLink;
+				}
+
+				if (envelope.WorkflowMode == EnvelopeWorkflowMode.Simple) {
+					foreach (var recipient in envelope.Signers) {
+						recipient.Role = RecipientRole.Signer;
+						recipient.RoutingOrder = 1;
+					}
+				}
+
 				store.Update(envelope.EnvelopeID, envelope);
 				return envelope;
 			});
@@ -73,10 +112,13 @@ namespace SignFabric.Application.Services {
 			return await Task.Run(() => {
 				var store = _storeFactory.CreateEnvelopeRepository(userId);
 				var envelope = store.GetEnvelopes(envelopeId).FirstOrDefault() ?? throw new InvalidOperationException("Envelope not found");
+				NormalizeRouting(envelope);
 				envelope.Status = EnvelopeStatus.Sent;
 				envelope.Sent = DateTime.Now;
+				ActivateNextRoutingStep(envelope);
 				store.Update(envelope.EnvelopeID, envelope);
 				_emailSender.SendEnvelopeInvitationsAsync(envelope, host, userId).GetAwaiter().GetResult();
+				store.Update(envelope.EnvelopeID, envelope);
 				return envelope;
 			});
 		}
@@ -86,5 +128,57 @@ namespace SignFabric.Application.Services {
 
 		public Task<string> CreateAsync(string userId, string userName, MemoryStream documentStream, string fileName, string signingCertificateId) =>
 			Task.Run(() => _envelopeDocumentFactory.CreateEnvelopeFromDocument(userId, userName, documentStream, fileName, signingCertificateId));
+
+		private static void NormalizeRouting(Envelope envelope) {
+			foreach (var recipient in envelope.Signers) {
+				if (recipient.Role == RecipientRole.Observer) {
+					recipient.RoutingOrder = 0;
+				}
+				else if (recipient.RoutingOrder <= 0) {
+					recipient.RoutingOrder = 1;
+				}
+			}
+
+			if (envelope.WorkflowMode == EnvelopeWorkflowMode.Simple) {
+				foreach (var recipient in envelope.Signers) {
+					recipient.Role = RecipientRole.Signer;
+					recipient.RoutingOrder = 1;
+				}
+			}
+		}
+
+		private static void ActivateNextRoutingStep(Envelope envelope) {
+			var nextBlockingOrder = envelope.Signers
+				.Where(IsBlockingRecipient)
+				.Where(recipient => !IsRecipientComplete(recipient))
+				.Select(recipient => recipient.RoutingOrder <= 0 ? 1 : recipient.RoutingOrder)
+				.DefaultIfEmpty(0)
+				.Min();
+
+			foreach (var recipient in envelope.Signers) {
+				if (recipient.Role == RecipientRole.Observer) {
+					recipient.RoutingActive = true;
+					if (!recipient.RoutingActivatedAt.HasValue) {
+						recipient.RoutingActivatedAt = DateTime.UtcNow;
+					}
+					continue;
+				}
+
+				var recipientOrder = recipient.RoutingOrder <= 0 ? 1 : recipient.RoutingOrder;
+				recipient.RoutingActive = IsBlockingRecipient(recipient)
+					? nextBlockingOrder > 0 && recipientOrder == nextBlockingOrder
+					: nextBlockingOrder == 0 || recipientOrder <= nextBlockingOrder;
+
+				if (recipient.RoutingActive && !recipient.RoutingActivatedAt.HasValue) {
+					recipient.RoutingActivatedAt = DateTime.UtcNow;
+				}
+			}
+		}
+
+		private static bool IsBlockingRecipient(Signer recipient) =>
+			recipient.Role == RecipientRole.Signer || recipient.Role == RecipientRole.Approver;
+
+		private static bool IsRecipientComplete(Signer recipient) =>
+			recipient.SignerStatus == SignerStatus.Signed;
 	}
 }

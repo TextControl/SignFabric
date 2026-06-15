@@ -26,6 +26,7 @@ namespace SignFabric.Pages.Review {
 		public bool CanCreateSignerAccount { get; set; }
 		public bool SignerAccountExists { get; set; }
 		public bool RequiresEmailOtp { get; set; }
+		public bool NotActiveYet { get; set; }
 		public string OtpMessage { get; set; }
 		public string OtpError { get; set; }
 		public string SignInReturnUrl { get; set; }
@@ -61,6 +62,9 @@ namespace SignFabric.Pages.Review {
 				}
 
 				await BindPreparationAsync(preparation);
+				if (NotActiveYet) {
+					return Page();
+				}
 
 				if (RequiresEmailOtp) {
 					await _signingWorkflowService.RequestSignerEmailOtpAsync(id);
@@ -109,6 +113,7 @@ namespace SignFabric.Pages.Review {
 			Envelope = preparation.Envelope;
 			Signer = preparation.Signer;
 			RequiresEmailOtp = preparation.RequiresEmailOtp;
+			NotActiveYet = preparation.NotActiveYet;
 			SignInReturnUrl = Url.Page("/Review/Sign", pageHandler: null, values: new { id = AccessId });
 
 			if (_signerAccountOptions.CurrentValue.Enabled && !string.IsNullOrWhiteSpace(Signer.Email)) {

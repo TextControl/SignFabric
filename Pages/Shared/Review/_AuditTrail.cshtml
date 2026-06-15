@@ -133,12 +133,12 @@
                                 <td>@signer.Name</td>
                                 <td>@signer.Email</td>
                                 <td>@GetSignerAuthentication(signer)</td>
-                                <td><span class="badge rounded-pill @GetSignerStatusBadgeClass(signer.SignerStatus)">@signer.SignerStatus</span></td>
+                                <td><span class="badge rounded-pill @GetSignerStatusBadgeClass(signer.SignerStatus)">@GetRecipientStatusLabel(signer, signer.SignerStatus)</span></td>
                                 <td>
                                     <ol class="audit-event-list">
                                         @foreach (var statusChanged in signer.StatusChanged.OrderBy(item => item.TimeStamp)) {
                                             <li>
-                                                <strong>@statusChanged.SignerStatus</strong>
+                                                <strong>@GetRecipientStatusLabel(signer, statusChanged.SignerStatus)</strong>
                                                 <span>@FormatDate(statusChanged.TimeStamp)</span>
                                             </li>
                                         }
@@ -155,6 +155,37 @@
             <div class="audit-trail-card-header">
                 <i class="bi bi-pen-fill text-alignment" aria-hidden="true"></i> Signature Evidence
             </div>
+
+            @foreach (var approver in envelope.Signers.Where(item => item.Role == RecipientRole.Approver && item.SignerStatus == SignerStatus.Signed)) {
+                <section class="audit-signer-section">
+                    <div class="audit-signer-header">
+                        <div>
+                            <h3>@approver.Name</h3>
+                            <p>@approver.Email</p>
+                        </div>
+                        <span class="badge rounded-pill bg-success">Approved</span>
+                    </div>
+
+                    <dl class="audit-evidence-list audit-evidence-list-wide">
+                        <div>
+                            <dt>Approval timestamp</dt>
+                            <dd>@(approver.CompletedAt.HasValue ? FormatUtc(approver.CompletedAt.Value) : "Not recorded")</dd>
+                        </div>
+                        <div>
+                            <dt>IP address</dt>
+                            <dd>@ValueOrMissing(approver.ApprovalIPAddress)</dd>
+                        </div>
+                        <div>
+                            <dt>User agent</dt>
+                            <dd class="audit-code">@ValueOrMissing(approver.ApprovalUserAgent)</dd>
+                        </div>
+                        <div>
+                            <dt>Comment</dt>
+                            <dd>@ValueOrMissing(approver.ApprovalComment)</dd>
+                        </div>
+                    </dl>
+                </section>
+            }
 
             @foreach (var signer in envelope.Signers.Where(item => item.SignatureInformation != null)) {
                 var signature = signer.SignatureInformation;
@@ -291,6 +322,18 @@
             SignerStatus.Received => "bg-warning text-dark",
             _ => "bg-primary"
         };
+    }
+
+    private static string GetRecipientStatusLabel(Signer signer, SignerStatus status) {
+        if (signer?.Role == RecipientRole.Approver && status == SignerStatus.Signed) {
+            return "Approved";
+        }
+
+        if (signer?.Role == RecipientRole.Approver && status == SignerStatus.None) {
+            return "Pending Approval";
+        }
+
+        return status.ToString();
     }
 
     private static string GetSignerAuthentication(Signer signer) {

@@ -1,0 +1,51 @@
+@page "/review/approve"
+@model SignFabric.Pages.Review.ApproveModel
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+
+@{
+    ViewData["Title"] = "Approve Document";
+}
+
+<section id="home" class="container section auth-section">
+    <div class="auth-card auth-card-wide">
+        <div class="auth-icon" aria-hidden="true">
+            <i class="bi bi-clipboard-check"></i>
+        </div>
+
+        @if (Model.AlreadyCompleted) {
+            <h1>Approval Recorded</h1>
+            <p>Your approval decision for <strong>@Model.Envelope?.Name</strong> has been recorded.</p>
+        }
+        else if (Model.NotActiveYet) {
+            <h1>Not Your Turn Yet</h1>
+            <p>This approval step is waiting for an earlier recipient. We will notify you when it is ready.</p>
+        }
+        else {
+            <h1>Review Approval</h1>
+            <p>
+                <strong>@Model.Envelope?.Sender</strong> is requesting your approval for
+                <strong>@Model.Envelope?.Name</strong>.
+            </p>
+
+            @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage)) {
+                <div class="auth-alert" role="alert">@Model.ErrorMessage</div>
+            }
+
+            <form method="post" asp-page-handler="Approve" asp-route-id="@Model.AccessId" class="auth-form">
+                <div class="mb-3 text-start">
+                    <label for="comment" class="form-label">Comment</label>
+                    <textarea id="comment" name="comment" class="form-control" rows="4" placeholder="Optional approval comment"></textarea>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 justify-content-center">
+                    <button type="submit" class="btn btn-primary">Approve</button>
+                    <button type="submit"
+                            formaction="?handler=Decline&id=@Model.AccessId"
+                            class="btn btn-outline-danger">
+                        Decline
+                    </button>
+                </div>
+            </form>
+        }
+    </div>
+</section>

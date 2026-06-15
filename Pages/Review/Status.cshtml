@@ -1,0 +1,35 @@
+@page "/review/status"
+@model SignFabric.Pages.Review.StatusModel
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+
+@{
+    ViewData["Title"] = "Envelope Status";
+}
+
+<section id="home" class="container section auth-section">
+    <div class="auth-card auth-card-wide">
+        <div class="auth-icon" aria-hidden="true">
+            <i class="bi bi-eye"></i>
+        </div>
+        <h1>Envelope Status</h1>
+        <p>
+            <strong>@Model.Envelope?.Sender</strong> included you as
+            <strong>@Model.Recipient?.Role</strong> for <strong>@Model.Envelope?.Name</strong>.
+        </p>
+
+        <dl class="audit-evidence-list">
+            <div>
+                <dt>Envelope status</dt>
+                <dd>@Model.Envelope?.Status</dd>
+            </div>
+            <div>
+                <dt>Recipient status</dt>
+                <dd>@Model.Recipient?.SignerStatus</dd>
+            </div>
+            <div>
+                <dt>Routing order</dt>
+                <dd>@Model.Recipient?.RoutingOrder</dd>
+            </div>
+        </dl>
+    </div>
+</section>

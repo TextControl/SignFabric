@@ -17,7 +17,9 @@ namespace SignFabric.Application.Services {
 		Task<SigningThanksInfo> GetSigningThanksAsync(string accessId);
 		Task<ValidatedDocument> ValidateSignedDocumentAsync(byte[] uploadedDocument);
 		Task CompleteSigningAsync(string envelopeId, string signerId);
-		Task CompleteDocumentViewerSigningAsync(SignatureData data, string userId, string envelopeId, string signerId, string ipAddress, string userAgent);
+		Task CompleteDocumentViewerSigningAsync(SignatureData data, string userId, string envelopeId, string signerId, string ipAddress, string userAgent, string host);
+		Task<ExternalApprovalPreparation> PrepareExternalApprovalAsync(string accessId);
+		Task CompleteApprovalAsync(string accessId, bool approved, string comment, string ipAddress, string userAgent, string host);
 		Task<bool> IsFullySignedAsync(string envelopeId);
 		Task GenerateFinalDocumentAsync(string envelopeId);
 	}
@@ -29,6 +31,15 @@ namespace SignFabric.Application.Services {
 		public Signer Signer { get; set; }
 		public bool AlreadySigned { get; set; }
 		public bool RequiresEmailOtp { get; set; }
+		public bool NotActiveYet { get; set; }
+	}
+
+	public class ExternalApprovalPreparation {
+		public string AccessId { get; set; }
+		public Envelope Envelope { get; set; }
+		public Signer Approver { get; set; }
+		public bool AlreadyCompleted { get; set; }
+		public bool NotActiveYet { get; set; }
 	}
 
 	public class SigningThanksInfo {

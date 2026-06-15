@@ -90,7 +90,9 @@ namespace SignFabric.Controllers {
 				envelope.Status = EnvelopeStatus.New;
 
 				var document = store.GetDocument(envelope.EnvelopeID);
-				envelope.ContainsSignatureBoxes = await _fieldExtractionService.ContainsSignatureBoxesAsync(document, envelope.Signers);
+				envelope.ContainsSignatureBoxes = await _fieldExtractionService.ContainsSignatureBoxesAsync(
+					document,
+					envelope.Signers.Where(signer => signer.Role == RecipientRole.Signer).ToList());
 
 				if (!envelope.ContainsSignatureBoxes) {
 					envelope.Status = EnvelopeStatus.Incomplete;

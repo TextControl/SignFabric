@@ -101,7 +101,7 @@ namespace SignFabric.Controllers {
 				var envelope = await _workflowService.GetRecipientsAsync(_userId, id);
 				var store = _storeFactory.CreateEnvelopeRepository(_userId);
 				var state = new FieldAssignmentState {
-					Fields = _txDocumentService.GetUnassignedRecipientFields(store.GetDocument(id), envelope.Signers)
+					Fields = _txDocumentService.GetUnassignedRecipientFields(store.GetDocument(id), envelope.Signers.FindAll(item => item.Role == RecipientRole.Signer))
 				};
 
 				return Ok(state);
@@ -116,7 +116,7 @@ namespace SignFabric.Controllers {
 			try {
 				var envelope = await _workflowService.GetRecipientsAsync(_userId, id);
 				var signerIds = new HashSet<string>();
-				foreach (var signer in envelope.Signers) {
+				foreach (var signer in envelope.Signers.FindAll(item => item.Role == RecipientRole.Signer)) {
 					signerIds.Add(signer.Id);
 				}
 
@@ -144,6 +144,16 @@ namespace SignFabric.Controllers {
 				return Ok(await _workflowService.RemoveRecipientAsync(_userId, id, signer));
 			} catch (InvalidOperationException ex) {
 				return BadRequest(ex.Message);
+			} catch (Exception ex) {
+				return BadRequest(new { error = ex.Message, success = false });
+			}
+		}
+
+		[HttpPost("workflow/{id}")]
+		[HttpPost("/envelope/workflow/{id}")]
+		public async Task<IActionResult> UpdateWorkflow([FromBody] EnvelopeWorkflowUpdate request, string id) {
+			try {
+				return Ok(await _workflowService.UpdateWorkflowAsync(_userId, id, request));
 			} catch (Exception ex) {
 				return BadRequest(new { error = ex.Message, success = false });
 			}
