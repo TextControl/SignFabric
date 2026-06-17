@@ -59,7 +59,7 @@
         </div>
 
         @if (Model.Result.Valid == true) {
-            @await Html.PartialAsync("~/Pages/Shared/Review/_AuditTrail.cshtml", Model.Result.Envelope)
+            @await Html.PartialAsync("~/Pages/Shared/Review/_AuditTrail.cshtml", new EnvelopeAuditTrailView { Envelope = Model.Result.Envelope })
         }
         else {
             <a href="/review/validate" class="btn btn-warning mb-3"><strong>Validate another Document</strong></a>
