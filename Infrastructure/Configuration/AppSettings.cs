@@ -7,6 +7,7 @@ namespace SignFabric.Infrastructure.Configuration {
 	/// </summary>
 	public class AppSettings {
 		public string DataDirectory { get; set; }
+		public string DataProtectionKeysPath { get; set; }
 		public string DatabaseDirectory { get; set; }
 		public string AuditLogsPath { get; set; }
 		public SigningCertificateSettings SigningCertificate { get; set; } = new();

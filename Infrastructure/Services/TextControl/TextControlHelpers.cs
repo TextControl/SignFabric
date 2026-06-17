@@ -357,7 +357,7 @@ namespace SignFabric.Infrastructure.Services.TextControl {
 
 			}
 
-			byte[] octets = System.Text.Encoding.ASCII.GetBytes(envelope.EnvelopeID + ":" + userId);
+			byte[] octets = System.Text.Encoding.UTF8.GetBytes(envelope.EnvelopeID + ":" + userId);
 			var envelope_code = Convert.ToBase64String(octets);
 
 			// add the signatures

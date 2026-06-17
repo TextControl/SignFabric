@@ -240,7 +240,7 @@ namespace SignFabric.Application.Services {
 				string[] parts;
 				try {
 					byte[] octets = Convert.FromBase64String(accessId);
-					parts = Encoding.ASCII.GetString(octets).Split(':');
+					parts = Encoding.UTF8.GetString(octets).Split(':');
 				}
 				catch (FormatException) {
 					return InvalidValidationResult("The embedded validation id is invalid.");
@@ -250,7 +250,8 @@ namespace SignFabric.Application.Services {
 					return InvalidValidationResult("The embedded validation id is incomplete.");
 				}
 
-				var store = _storeFactory.CreateEnvelopeRepository(parts[1]);
+				var ownerUserId = string.Join(":", parts.Skip(1));
+				var store = _storeFactory.CreateEnvelopeRepository(ownerUserId);
 				Envelope envelope = store.GetEnvelopes(parts[0]).FirstOrDefault();
 
 				if (envelope == null) {
@@ -403,7 +404,7 @@ namespace SignFabric.Application.Services {
 						envelope.FinalDocumentHashMD5 = CalculateMD5(createdPDF.PdfData);
 						envelope.FinalDocumentSizeBytes = createdPDF.PdfData.LongLength;
 						envelope.OriginalDocumentHashSha256 = CalculateSha256(Convert.FromBase64String(store.GetDocument(envelope.EnvelopeID)));
-						envelope.ValidationId = Convert.ToBase64String(Encoding.ASCII.GetBytes(envelope.EnvelopeID + ":" + userId));
+						envelope.ValidationId = Convert.ToBase64String(Encoding.UTF8.GetBytes(envelope.EnvelopeID + ":" + userId));
 						envelope.SigningCertificate ??= GetSigningCertificateEvidence(envelope);
 
 						if (!string.IsNullOrWhiteSpace(createdPDF.ThumbnailSvg)) {
@@ -541,7 +542,7 @@ namespace SignFabric.Application.Services {
 					envelope.FinalDocumentHashMD5 = CalculateMD5(pdfData);
 					envelope.FinalDocumentSizeBytes = pdfData.LongLength;
 					envelope.OriginalDocumentHashSha256 = CalculateSha256(Convert.FromBase64String(store.GetDocument(envelope.EnvelopeID)));
-					envelope.ValidationId = Convert.ToBase64String(Encoding.ASCII.GetBytes(envelope.EnvelopeID + ":" + _userId));
+					envelope.ValidationId = Convert.ToBase64String(Encoding.UTF8.GetBytes(envelope.EnvelopeID + ":" + _userId));
 					envelope.SigningCertificate ??= GetSigningCertificateEvidence(envelope);
 
 					if (!string.IsNullOrWhiteSpace(thumbnailSvg)) {
@@ -632,7 +633,7 @@ namespace SignFabric.Application.Services {
 					var normalized = accessId.Trim().Replace(' ', '+').Replace('-', '+').Replace('_', '/');
 					normalized = normalized.PadRight(normalized.Length + ((4 - normalized.Length % 4) % 4), '=');
 					byte[] octets = Convert.FromBase64String(normalized);
-					decodedAccessId = Encoding.ASCII.GetString(octets);
+					decodedAccessId = Encoding.UTF8.GetString(octets);
 				}
 				catch (FormatException ex) {
 					throw new InvalidOperationException("Invalid signing access id.", ex);
@@ -645,7 +646,17 @@ namespace SignFabric.Application.Services {
 				throw new InvalidOperationException("Invalid signing access id.");
 			}
 
-			return (parts[0], parts[1], parts[2]);
+			var envelopeId = parts[0];
+			var ownerUserId = string.Join(":", parts.Skip(1).Take(parts.Length - 2));
+			var signerId = parts[^1];
+
+			if (string.IsNullOrWhiteSpace(envelopeId) ||
+				string.IsNullOrWhiteSpace(ownerUserId) ||
+				string.IsNullOrWhiteSpace(signerId)) {
+				throw new InvalidOperationException("Invalid signing access id.");
+			}
+
+			return (envelopeId, ownerUserId, signerId);
 		}
 
 		private (Envelope Envelope, Signer Signer, string OwnerUserId) LoadSigningContext(string accessId) {
@@ -733,7 +744,7 @@ namespace SignFabric.Application.Services {
 				envelope.FinalDocumentHashMD5 = CalculateMD5(createdPDF.PdfData);
 				envelope.FinalDocumentSizeBytes = createdPDF.PdfData.LongLength;
 				envelope.OriginalDocumentHashSha256 = CalculateSha256(Convert.FromBase64String(store.GetDocument(envelope.EnvelopeID)));
-				envelope.ValidationId = Convert.ToBase64String(Encoding.ASCII.GetBytes(envelope.EnvelopeID + ":" + ownerUserId));
+				envelope.ValidationId = Convert.ToBase64String(Encoding.UTF8.GetBytes(envelope.EnvelopeID + ":" + ownerUserId));
 				envelope.SigningCertificate ??= GetSigningCertificateEvidence(envelope);
 
 				if (!string.IsNullOrWhiteSpace(createdPDF.ThumbnailSvg)) {

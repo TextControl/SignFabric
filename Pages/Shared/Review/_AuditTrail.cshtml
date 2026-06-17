@@ -5,7 +5,7 @@
     var certificate = envelope.SigningCertificate;
     var validationId = !string.IsNullOrWhiteSpace(envelope.ValidationId)
         ? envelope.ValidationId
-        : Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes(envelope.EnvelopeID + ":" + envelope.UserID));
+        : Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(envelope.EnvelopeID + ":" + envelope.UserID));
 }
 
 <div class="row mt-5">

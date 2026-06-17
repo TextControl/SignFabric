@@ -16,7 +16,7 @@ namespace SignFabric {
 
 			builder.Services
 				.AddPresentation(builder.Configuration)
-				.AddInfrastructureServices(builder.Configuration)
+				.AddInfrastructureServices(builder.Configuration, builder.Environment)
 				.AddApplicationServices();
 
 			var app = builder.Build();

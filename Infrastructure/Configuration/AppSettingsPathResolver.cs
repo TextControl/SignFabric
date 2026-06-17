@@ -18,6 +18,7 @@ namespace SignFabric.Infrastructure.Configuration {
 		}
 
 		public string DataDirectory => ResolveDirectory(_settings.DataDirectory, "App_Data");
+		public string DataProtectionKeysPath => ResolveDirectory(_settings.DataProtectionKeysPath, Path.Combine("App_Data", "data-protection-keys"));
 		public string DatabaseDirectory => ResolveDirectory(_settings.DatabaseDirectory, "Data");
 		public string AuditLogsPath => ResolveDirectory(_settings.AuditLogsPath, Path.Combine("Data", "audit"));
 		public string EmailTemplatesPath => ResolveDirectory(_settings.EmailTemplatesPath, "App_Data");

@@ -184,7 +184,7 @@ namespace SignFabric.Application.Services {
 			var changed = false;
 
 			if (string.IsNullOrWhiteSpace(envelope.ValidationId)) {
-				envelope.ValidationId = Convert.ToBase64String(Encoding.ASCII.GetBytes(envelope.EnvelopeID + ":" + envelope.UserID));
+				envelope.ValidationId = Convert.ToBase64String(Encoding.UTF8.GetBytes(envelope.EnvelopeID + ":" + envelope.UserID));
 				changed = true;
 			}
 

@@ -98,7 +98,7 @@ namespace SignFabric.Application.Envelopes {
 
 				foreach (var signer in envelope.Signers) {
 					signer.SignerStatus = SignerStatus.Sent;
-					var accessId = Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes(envelopeId + ":" + _userId + ":" + signer.Id))
+					var accessId = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(envelopeId + ":" + _userId + ":" + signer.Id))
 						.TrimEnd('=')
 						.Replace('+', '-')
 						.Replace('/', '_');

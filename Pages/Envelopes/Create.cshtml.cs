@@ -86,14 +86,14 @@ namespace SignFabric.Pages.Envelopes {
 
 		private string CreateEnvelopeFromContract(string accessId) {
 			byte[] octets = Convert.FromBase64String(accessId);
-			var parts = Encoding.ASCII.GetString(octets).Split(':');
+			var parts = Encoding.UTF8.GetString(octets).Split(':');
 
 			if (parts.Length < 2) {
 				throw new InvalidOperationException("Invalid contract access id.");
 			}
 
 			var contractId = parts[0];
-			var ownerId = parts[1];
+			var ownerId = string.Join(":", parts.Skip(1));
 			var contractStore = _storeFactory.CreateContractRepository(ownerId);
 			var contract = contractStore.GetContracts(contractId).FirstOrDefault() ?? throw new InvalidOperationException("Contract not found.");
 			var document = contractStore.GetDocument(contract.ContractID);

@@ -5,7 +5,7 @@
     ViewData["Title"] = "Envelope Summary";
     ViewData["RecipientTokenView"] = Model.IsApprovalView || Model.IsRecipientStatusView;
 
-    byte[] octets = System.Text.Encoding.ASCII.GetBytes(Model.Envelope.EnvelopeID + ":" + Model.Envelope.UserID);
+    byte[] octets = System.Text.Encoding.UTF8.GetBytes(Model.Envelope.EnvelopeID + ":" + Model.Envelope.UserID);
     var envelope_code = Convert.ToBase64String(octets);
     var host = HttpContext.Request.Scheme + "://" + HttpContext.Request.Host;
 }

@@ -344,7 +344,7 @@ namespace SignFabric.Infrastructure.Email.Legacy {
 		}
 
 		private static string EncodeAccessId(params string[] parts) =>
-			Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes(string.Join(":", parts)))
+			Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(string.Join(":", parts)))
 				.TrimEnd('=')
 				.Replace('+', '-')
 				.Replace('/', '_');

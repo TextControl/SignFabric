@@ -276,11 +276,12 @@ namespace SignFabric.Infrastructure.Email {
 		}
 
 		private static string ResolveWritableAppSettingsPath(IHostEnvironment environment) {
-			var fileName = environment.IsDevelopment()
-				? "appsettings.Development.json"
-				: "appsettings.json";
+			var environmentFileName = $"appsettings.{environment.EnvironmentName}.json";
+			var environmentPath = Path.Combine(environment.ContentRootPath, environmentFileName);
 
-			return Path.Combine(environment.ContentRootPath, fileName);
+			return File.Exists(environmentPath)
+				? environmentPath
+				: Path.Combine(environment.ContentRootPath, "appsettings.json");
 		}
 	}
 }

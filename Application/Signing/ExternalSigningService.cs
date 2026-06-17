@@ -30,14 +30,14 @@ namespace SignFabric.Application.Signing {
 			return await Task.Run(() => {
 				try {
 					byte[] octets = Convert.FromBase64String(encodedId);
-					var parts = System.Text.Encoding.ASCII.GetString(octets).Split(':');
+					var parts = System.Text.Encoding.UTF8.GetString(octets).Split(':');
 					
 					if (parts.Length < 2) {
 						throw new InvalidOperationException("Invalid signing link format");
 					}
 
 					var envelopeId = parts[0];
-					var userId = parts[1];
+					var userId = string.Join(":", parts.Skip(1));
 					
 					return _storeFactory.CreateEnvelopeRepository(userId).GetEnvelopes(envelopeId).FirstOrDefault();
 				} catch (Exception ex) {
@@ -51,14 +51,14 @@ namespace SignFabric.Application.Signing {
 			return await Task.Run(() => {
 				try {
 					byte[] octets = Convert.FromBase64String(encodedId);
-					var parts = System.Text.Encoding.ASCII.GetString(octets).Split(':');
+					var parts = System.Text.Encoding.UTF8.GetString(octets).Split(':');
 					
 					if (parts.Length < 2) {
 						throw new InvalidOperationException("Invalid review link format");
 					}
 
 					var contractId = parts[0];
-					var userId = parts[1];
+					var userId = string.Join(":", parts.Skip(1));
 					
 					return _storeFactory.CreateContractRepository(userId).GetContracts(contractId).FirstOrDefault();
 				} catch (Exception ex) {

@@ -75,14 +75,23 @@ namespace SignFabric.Application.Services {
 		}
 
 		private static (string ContractId, string OwnerId) DecodeContractAccessId(string accessId) {
-			byte[] octets = Convert.FromBase64String(accessId);
-			string[] parts = Encoding.ASCII.GetString(octets).Split(':');
+			var normalized = accessId.Trim().Replace(' ', '+').Replace('-', '+').Replace('_', '/');
+			normalized = normalized.PadRight(normalized.Length + ((4 - normalized.Length % 4) % 4), '=');
+			byte[] octets = Convert.FromBase64String(normalized);
+			string[] parts = Encoding.UTF8.GetString(octets).Split(':');
 
 			if (parts.Length < 2) {
 				throw new InvalidOperationException("Invalid contract access id.");
 			}
 
-			return (parts[0], parts[1]);
+			var contractId = parts[0];
+			var ownerId = string.Join(":", parts.Skip(1));
+
+			if (string.IsNullOrWhiteSpace(contractId) || string.IsNullOrWhiteSpace(ownerId)) {
+				throw new InvalidOperationException("Invalid contract access id.");
+			}
+
+			return (contractId, ownerId);
 		}
 	}
 }

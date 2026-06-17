@@ -11,19 +11,36 @@ using SignFabric.Application.Contracts;
 using SignFabric.Domain;
 using SignFabric.Presentation.ViewModels;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using System.IO;
 
 namespace SignFabric.Infrastructure {
 	public static class InfrastructureServiceCollectionExtensions {
-		public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration) {
+		public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration, IWebHostEnvironment environment) {
 			services.Configure<Credentials>(configuration.GetSection("Credentials"));
 			services.Configure<AppSettings>(configuration.GetSection("AppSettings"));
 			services.Configure<BootstrapAdminOptions>(configuration.GetSection("BootstrapAdmin"));
 			services.Configure<LocalOAuthOptions>(configuration.GetSection("Authentication:LocalOAuth"));
 			services.Configure<SignerAccountOptions>(configuration.GetSection("SignerAccounts"));
 
-			services.AddDataProtection();
+			var appSettings = configuration.GetSection("AppSettings").Get<AppSettings>() ?? new AppSettings();
+			var dataProtectionKeysPath = ResolvePath(
+				environment.ContentRootPath,
+				appSettings.DataProtectionKeysPath,
+				Path.Combine("App_Data", "data-protection-keys"));
+			Directory.CreateDirectory(dataProtectionKeysPath);
+
+			var dataProtectionBuilder = services
+				.AddDataProtection()
+				.SetApplicationName("SignFabric")
+				.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
+
+			if (System.OperatingSystem.IsWindows()) {
+				dataProtectionBuilder.ProtectKeysWithDpapi(protectToLocalMachine: true);
+			}
+
 			services.AddSingleton<AppSettingsPathResolver>();
 			services.AddHttpContextAccessor();
 			services.AddScoped<ICurrentUserContext, HttpCurrentUserContext>();
@@ -49,6 +66,16 @@ namespace SignFabric.Infrastructure {
 			services.AddScoped<ISampleDocumentProvider, AppDataSampleDocumentProvider>();
 
 			return services;
+		}
+
+		private static string ResolvePath(string contentRootPath, string configuredPath, string fallbackPath) {
+			var path = string.IsNullOrWhiteSpace(configuredPath)
+				? fallbackPath
+				: configuredPath;
+
+			return Path.IsPathRooted(path)
+				? Path.GetFullPath(path)
+				: Path.GetFullPath(Path.Combine(contentRootPath, path));
 		}
 	}
 }

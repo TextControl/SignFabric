@@ -4,7 +4,7 @@
 @{
     ViewData["Title"] = "Contract Summary";
 
-    byte[] octets = System.Text.Encoding.ASCII.GetBytes(Model.Contract.ContractID + ":" + Model.Contract.UserID);
+    byte[] octets = System.Text.Encoding.UTF8.GetBytes(Model.Contract.ContractID + ":" + Model.Contract.UserID);
     var envelope_code = Convert.ToBase64String(octets);
     var host = HttpContext.Request.Scheme + "://" + HttpContext.Request.Host;
 }
