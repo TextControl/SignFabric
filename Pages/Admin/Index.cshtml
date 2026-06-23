@@ -504,7 +504,18 @@
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <label asp-for="AuthenticationSettings.LocalOAuthSigningKey" class="form-label"></label>
-                    <input asp-for="AuthenticationSettings.LocalOAuthSigningKey" class="form-control" placeholder="@(Model.AuthenticationSettings.LocalOAuthHasSigningKey ? "Stored signing key is kept" : "At least 32 characters")" />
+                    <input asp-for="AuthenticationSettings.LocalOAuthSigningKey"
+                           class="form-control"
+                           type="text"
+                           autocomplete="new-password"
+                           autocorrect="off"
+                           autocapitalize="off"
+                           spellcheck="false"
+                           data-auth-manual-secret="true"
+                           data-lpignore="true"
+                           data-1p-ignore="true"
+                           data-form-type="other"
+                           placeholder="@(Model.AuthenticationSettings.LocalOAuthHasSigningKey ? "Stored signing key is kept" : "At least 32 characters")" />
                     <div class="form-text">
                         @(Model.AuthenticationSettings.LocalOAuthHasSigningKey ? "Leave blank to keep the current signing key." : "Use a high-entropy key of at least 32 characters.")
                     </div>
@@ -993,6 +1004,7 @@
                 var debounceTimer;
                 var pendingSave = false;
                 var saveInProgress = false;
+                var manualSecretFields = authenticationSettingsForm.querySelectorAll("[data-auth-manual-secret='true']");
 
                 function setStatus(message, state) {
                     authenticationSettingsStatus.textContent = message || "";
@@ -1013,9 +1025,16 @@
                     setStatus("Saving authentication settings...", "text-muted");
 
                     try {
+                        var formData = new FormData(authenticationSettingsForm);
+                        manualSecretFields.forEach(function (field) {
+                            if (field.dataset.userEdited !== "true") {
+                                formData.delete(field.name);
+                            }
+                        });
+
                         var response = await fetch(authenticationSettingsForm.action, {
                             method: "POST",
-                            body: new FormData(authenticationSettingsForm),
+                            body: formData,
                             headers: {
                                 "X-Requested-With": "XMLHttpRequest"
                             }
@@ -1067,6 +1086,15 @@
                 authenticationSettingsForm.querySelectorAll("input, textarea, select").forEach(function (field) {
                     if (field.type === "hidden") {
                         return;
+                    }
+
+                    if (field.dataset.authManualSecret === "true") {
+                        field.addEventListener("keydown", function () {
+                            field.dataset.userEdited = "true";
+                        });
+                        field.addEventListener("paste", function () {
+                            field.dataset.userEdited = "true";
+                        });
                     }
 
                     if (field.type === "checkbox" || field.type === "radio" || field.tagName === "SELECT") {
